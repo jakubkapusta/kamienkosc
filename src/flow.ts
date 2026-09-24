@@ -511,9 +511,17 @@ export class Game {
     saveRun(null);
     this.clearHud();
     const mins = Math.max(1, Math.round((Date.now() - run.stats.start) / 60000));
-    const a = await overlay<string>(`<div class="eyebrow">${won ? 'wyprawa zaliczona' : 'nekrolog'}</div>
-      <h2 class="${won ? 'win' : 'lose'}">${won ? 'Szef pokonany!' : 'Tu spoczywa'}</h2>
-      <p class="lead">${won ? 'Wracasz do domu z tarczą. I z reklamówką łupów.' : `${esc(CLASSES[run.cls].name)}. ${run.cls === 'druid' ? 'Odeszła' : 'Odszedł'} tak, jak żył${run.cls === 'druid' ? 'a' : ''}: w pośpiechu.`}</p>
+    const she = run.cls === 'druid';
+    const floor = Math.max(1, floorOf(run));
+    const mourners = ['diabliki z działek', 'koledzy z przystanku', 'pani z okienka nr 3', 'teściowa (bez żalu)', 'sąsiedzi z bloku'];
+    const head = won
+      ? `<div class="eyebrow">dyplom uznania</div>
+      <h2 class="win">Szef pokonany!</h2>
+      <p class="lead">Za zasługi w tłuczeniu diablików, utopców i urzędników wyróżnia się: <b>${esc(CLASSES[run.cls].name)}</b>. Wracasz do domu z tarczą. I z reklamówką łupów.</p>`
+      : `<div class="eyebrow">z głębokim żalem zawiadamiamy, że</div>
+      <h2 class="lose">ś.p. ${esc(CLASSES[run.cls].name)}</h2>
+      <p class="lead">${she ? 'odeszła' : 'odszedł'} na piętrze ${floor} wyprawy, tak jak ${she ? 'żyła' : 'żył'}: w pośpiechu.<br>Pogrążeni w smutku: ${mourners[run.seed % mourners.length]}.</p>`;
+    const a = await overlay<string>(`${head}
       <p class="score">${sc}<small>${record ? 'nowy rekord!' : 'punktów'}</small></p>
       <dl class="stats">
         <div><dt>Spuszczony łomot</dt><dd>${run.stats.kills}</dd></div>

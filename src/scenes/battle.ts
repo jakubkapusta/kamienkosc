@@ -586,7 +586,7 @@ export class BattleScene implements Scene {
         for (const [x, y, t] of pos)
           if (t === CAP)
             this.fx.orb(x, y, tx, ty, '#d86aff', 0.5 + k++ * 0.05, () => {
-              sfx.tick(3);
+              sfx.cap();
               actor.flash = 0.6;
               actor.flashColor = '#d86aff';
             }, cellSz * 0.22);
@@ -612,8 +612,7 @@ export class BattleScene implements Scene {
     this.fx.motes(x, y, '#f0b8ff', 30, r * 2, 120, 1.4);
     this.fx.flash('#d86aff', 0.55);
     this.fx.shake(8);
-    sfx.extra();
-    sfx.cast(4);
+    sfx.ult();
     P.flash = 1;
     P.flashColor = '#d86aff';
     this.banner(u.name, 'SUPERMOC', '#e08aff', 36, 1.5);
@@ -716,7 +715,7 @@ export class BattleScene implements Scene {
         if (dmg >= 8) this.fx.stop(0.07);
         this.fx.glow(x, y, '#ff3020', r * 0.8, 0.35, r * 2);
         buzz(dmg >= 8 ? 45 : 20);
-        sfx.hit();
+        sfx.hit(dmg >= 8);
       }
       if (absorbed > 0) {
         this.fx.ring(x, y, '#7cc4ff', r * 1.05, r * 1.5, 0.45, 5);
