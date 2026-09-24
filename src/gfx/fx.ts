@@ -149,7 +149,7 @@ export class FX {
     p.vy = -rise;
     p.drag = 1.5;
     p.add = false;
-    p.font = `800 ${size}px "Alegreya Sans", system-ui, sans-serif`;
+    p.font = `700 ${size}px "Signika", system-ui, sans-serif`;
     this.parts.push(p);
   }
 

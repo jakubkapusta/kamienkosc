@@ -6,7 +6,7 @@ export interface MapNode { id: number; row: number; x: number; type: NodeType; n
 export interface MapData { nodes: MapNode[]; rows: number }
 
 export const NODE_NAME: Record<NodeType, string> = {
-  battle: 'Walka', elite: 'Elitarny wróg', event: 'Nieznane', shop: 'Kupiec', rest: 'Obozowisko', treasure: 'Skarb', boss: 'Władca',
+  battle: 'Zadyma', elite: 'Gruba ryba', event: 'Coś dziwnego', shop: 'Sklep', rest: 'Ognisko z kiełbasą', treasure: 'Słoik babci', boss: 'Szef wszystkich szefów',
 };
 
 export const ROWS = 8; // 0..6 path, 7 boss
@@ -16,7 +16,7 @@ export function genMap(seed: number): MapData {
   const nodes: MapNode[] = [];
   const rows: MapNode[][] = [];
   for (let r = 0; r < ROWS; r++) {
-    const n = r === ROWS - 1 ? 1 : r === 0 ? rng.int(2, 3) : rng.int(2, 4);
+    const n = r === ROWS - 1 ? 1 : r === 0 ? 2 : r === ROWS - 2 ? rng.int(1, 2) : rng.int(2, 3);
     const row: MapNode[] = [];
     for (let i = 0; i < n; i++) {
       const x = n === 1 ? 0.5 : 0.08 + (0.84 * (i + 0.5)) / n + rng.range(-0.07, 0.07) / n * 2;

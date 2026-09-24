@@ -1,7 +1,7 @@
 import { RNG } from '../core/rng';
 import { AIR, DARK, EARTH, ELEM_COLOR, FIRE, WATER } from '../core/types';
 import { mixHex } from '../gfx/color';
-import type { Look, LookKind } from '../gfx/portrait';
+import type { Look } from '../gfx/portrait';
 import type { SpellInst } from './fighter';
 import { ENEMY_POOL, SPELLS } from './spells';
 
@@ -25,99 +25,57 @@ export interface EnemySpec {
 
 interface Arch {
   title: string;
-  kind: LookKind;
+  art: string;
   hp: number;
-  skin: string[];
+  skins: string[];
+  tint: number;
   elems: number[];
-  eyes: number[];
-  horns: number[];
-  ears: number[];
-  teeth: number;
-  fangs: boolean;
-  head: [number, number];
-  cloth?: string[];
-  mask?: boolean;
-  hood?: boolean;
+  places: string[];
+  hair?: string;
 }
 
 const ARCH: Arch[] = [
-  { title: 'Goblin', kind: 'beast', hp: 30, skin: ['#7da33f', '#5f8a2e', '#8fa84a'], elems: [AIR, EARTH, FIRE], eyes: [2], horns: [0], ears: [1, 2], teeth: 5, fangs: false, head: [0.9, 0.78] },
-  { title: 'Ork', kind: 'beast', hp: 40, skin: ['#5b7d3c', '#6d6a3a', '#4f6e44'], elems: [FIRE, EARTH], eyes: [2], horns: [0, 1], ears: [1], teeth: 4, fangs: true, head: [1.05, 0.92] },
-  { title: 'Diablik', kind: 'beast', hp: 28, skin: ['#c2452f', '#a63a52', '#d0572a'], elems: [FIRE, DARK], eyes: [2, 3], horns: [1], ears: [2], teeth: 6, fangs: false, head: [0.85, 0.8] },
-  { title: 'Szkielet', kind: 'skull', hp: 32, skin: ['#dccfb2', '#cfc6b0'], elems: [DARK, WATER], eyes: [2], horns: [0], ears: [0], teeth: 7, fangs: false, head: [1, 1] },
-  { title: 'Upiór', kind: 'hood', hp: 32, skin: ['#333'], elems: [WATER, DARK, AIR], eyes: [2, 3], horns: [0], ears: [0], teeth: 0, fangs: false, head: [1, 1], cloth: ['#1d2a44', '#2a1d44', '#16323a'] },
-  { title: 'Kultysta', kind: 'hood', hp: 36, skin: ['#333'], elems: [DARK, FIRE], eyes: [2], horns: [0], ears: [0], teeth: 0, fangs: false, head: [1, 1], cloth: ['#4a1020', '#3a1244'], mask: true },
-  { title: 'Golem', kind: 'golem', hp: 50, skin: ['#8c8174', '#7b8490', '#8a7a64'], elems: [EARTH, WATER, AIR], eyes: [2], horns: [0], ears: [0], teeth: 0, fangs: false, head: [1.05, 1] },
-  { title: 'Jaszczur', kind: 'wyrm', hp: 42, skin: ['#4a8c6a', '#8c4a3a', '#3a6a8c'], elems: [FIRE, WATER, EARTH], eyes: [2], horns: [1, 2], ears: [0], teeth: 0, fangs: true, head: [1, 1] },
-  { title: 'Troll', kind: 'beast', hp: 46, skin: ['#6a8a8a', '#7a8a6a'], elems: [WATER, EARTH], eyes: [2], horns: [0], ears: [1], teeth: 3, fangs: true, head: [1.15, 1.0] },
+  { title: 'Diablik', art: 'imp', hp: 28, skins: ['#d8483a', '#c23a52', '#e05a2a'], tint: 0.1, elems: [FIRE, DARK], places: ['z Działki', 'z Ogródka Jordanowskiego', 'spod Grilla'] },
+  { title: 'Utopiec', art: 'drowner', hp: 34, skins: ['#5aa08a', '#4a8a9a', '#6aa06a'], tint: 0.15, elems: [WATER, EARTH], places: ['z Zalewu', 'z Glinianek', 'spod Mostu'] },
+  { title: 'Szkielet', art: 'skeleton', hp: 32, skins: ['#e8dcc0'], tint: 0, elems: [DARK, WATER], places: ['z Szafy', 'z Piwnicy', 'z Pawlacza'] },
+  { title: 'Upiór', art: 'ghost', hp: 30, skins: ['#cfe3ea', '#d8d0ea'], tint: 0.08, elems: [WATER, DARK, AIR], places: ['z Bloku', 'z Klatki Schodowej', 'spod Trójki'] },
+  { title: 'Akwizytor', art: 'salesman', hp: 36, skins: ['#9ab09a', '#a8a0b8'], tint: 0.1, elems: [DARK, FIRE, AIR], places: ['z Zaświatów', 'od Garnków', 'od Polis na Życie'] },
+  { title: 'Golem', art: 'golem', hp: 50, skins: ['#a8a296', '#9aa0a8', '#b0a490'], tint: 0.08, elems: [EARTH, AIR, WATER], places: ['z Wielkiej Płyty', 'z Osiedla', 'z Pustaków'] },
+  { title: 'Smok', art: 'dragon', hp: 42, skins: ['#4a9a5a', '#9a4a3a', '#3a7a9a'], tint: 0.2, elems: [FIRE, WATER, EARTH], places: ['z Wawelu (nie tego)', 'spod Wisły', 'z Zoo'] },
+  { title: 'Troll', art: 'troll', hp: 44, skins: ['#8a9a7a', '#9a8a7a'], tint: 0.1, elems: [AIR, EARTH, DARK], places: ['z Komentarzy', 'z Forum', 'spod Posta'], hair: '#3a3a2a' },
+  { title: 'Chochlik', art: 'goblin', hp: 30, skins: ['#7aaa4a', '#8aa84a'], tint: 0.12, elems: [AIR, EARTH, DARK], places: ['z Urzędu', 'z Okienka Nr 3', 'z Kadr'] },
 ];
 
-const BOSSES: (Arch & { name: string })[] = [
-  { name: 'Mor-Vallach', title: 'Lisz', kind: 'skull', hp: 100, skin: ['#e8dcc0'], elems: [DARK], eyes: [2], horns: [1], ears: [0], teeth: 7, fangs: false, head: [1, 1], cloth: ['#2a1244'], hood: true },
-  { name: 'Ignareth', title: 'Smok', kind: 'wyrm', hp: 110, skin: ['#b0382a'], elems: [FIRE], eyes: [2], horns: [2], ears: [0], teeth: 0, fangs: true, head: [1.1, 1] },
-  { name: 'Baal-Khorr', title: 'Władca Otchłani', kind: 'beast', hp: 105, skin: ['#8a2a3a'], elems: [DARK, FIRE], eyes: [3], horns: [2], ears: [1], teeth: 6, fangs: true, head: [1.05, 0.95] },
-  { name: 'Wielki Kolos', title: 'Golem Pradawnych', kind: 'golem', hp: 122, skin: ['#6d7a8c'], elems: [EARTH, AIR], eyes: [2], horns: [0], ears: [0], teeth: 0, fangs: false, head: [1.15, 1] },
-];
-
-const EPITHET = [
-  ['Ognisty', 'Płonący', 'Popielny'],
-  ['Lodowy', 'Mroźny', 'Topielczy'],
-  ['Kamienny', 'Mszysty', 'Omszały'],
-  ['Burzowy', 'Wichrowy', 'Gromowy'],
-  ['Przeklęty', 'Mroczny', 'Plugawy'],
+const BOSSES: { name: string; title: string; art: string; hp: number; skin: string; acc: string; elems: number[]; crown?: boolean }[] = [
+  { name: 'Pani Halinka', title: 'Kierowniczka Okienka', art: 'clerk', hp: 100, skin: '#f0c4a8', acc: '#b83a6a', elems: [DARK] },
+  { name: 'Smok Wawelski', title: 'Emerytowany Postrach Krakowa', art: 'dragon', hp: 110, skin: '#4a9a5a', acc: '#2a6a3a', elems: [FIRE], crown: true },
+  { name: 'Teściowa', title: 'Władczyni Niedzielnego Obiadu', art: 'tesciowa', hp: 105, skin: '#e8b4a0', acc: '#c8322a', elems: [DARK, FIRE] },
+  { name: 'Golem Kultury', title: 'Dar Bratniego Narodu', art: 'palace', hp: 122, skin: '#b8b0a2', acc: '#e8b53e', elems: [EARTH, AIR] },
 ];
 
 const TRAITS: Record<string, string> = {
-  armored: 'Opancerzony',
-  furious: 'Wściekły',
-  ancient: 'Pradawny',
-  vampiric: 'Wampiryczny',
-  mystic: 'Mistyczny',
+  armored: 'Opatulony',
+  furious: 'Skacowany',
+  ancient: 'Przedwojenny',
+  vampiric: 'Krwiopijczy',
+  mystic: 'Nawiedzony',
 };
 export const TRAIT_DESC: Record<string, string> = {
   armored: 'zaczyna z tarczą',
-  furious: 'czaszki zadają +1 obrażeń',
+  furious: 'czaszki bolą bardziej',
   ancient: 'więcej zdrowia',
   vampiric: 'leczy się czaszkami',
   mystic: 'zaczyna z maną',
 };
 
-const SYL1 = ['Gra', 'Zu', 'Mor', 'Kha', 'Vel', 'Dro', 'Ur', 'Nar', 'Thr', 'Bal', 'Gor', 'Skre', 'Vy', 'Oth', 'Krag', 'Zel'];
-const SYL2 = ['kk', 'zul', 'gath', 'rin', 'mar', 'th', 'ok', 'ash', 'ur', 'eth', 'ix', 'ogg', 'ven', 'ra'];
-
-function lookFor(a: Arch, rng: RNG, elem: number, big: boolean): Look {
-  const skin = mixHex(rng.pick(a.skin), ELEM_COLOR[elem], a.kind === 'skull' ? 0.05 : 0.18);
-  return {
-    kind: a.kind,
-    skin,
-    skin2: mixHex(skin, '#000000', 0.62),
-    eye: mixHex(ELEM_COLOR[elem], '#ffffff', 0.2),
-    aura: ELEM_COLOR[elem],
-    eyes: rng.pick(a.eyes),
-    horns: rng.pick(a.horns) + (big && a.kind !== 'golem' && a.kind !== 'hood' ? 1 : 0),
-    hornLen: rng.range(0.5, 1.1) + (big ? 0.3 : 0),
-    ears: rng.pick(a.ears),
-    teeth: a.teeth,
-    fangs: a.fangs,
-    headW: a.head[0] * rng.range(0.94, 1.06),
-    headH: a.head[1] * rng.range(0.94, 1.06),
-    crown: false,
-    seed: rng.int(1, 999),
-    cloth: a.cloth ? mixHex(rng.pick(a.cloth), ELEM_COLOR[elem], 0.15) : undefined,
-    mask: a.mask,
-    hood: a.hood,
-  };
-}
+const NAMES = ['Mietek', 'Zdzichu', 'Heniek', 'Rysiek', 'Waldek', 'Józek', 'Staszek', 'Kaziu', 'Zbyszek', 'Janusz', 'Bogdan', 'Czesiek', 'Edek', 'Leszek', 'Tadek', 'Wiesiek', 'Grzesiek', 'Marian'];
 
 export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
   const rng = new RNG(seed);
-  const scale = 0.9 + floor * 0.13;
   if (tier === 'boss') {
     const b = rng.pick(BOSSES);
     const elem = rng.pick(b.elems);
-    const look = lookFor(b, rng, elem, true);
-    look.crown = true;
-    look.horns = Math.max(look.horns, b.horns[0]);
+    const look: Look = { art: b.art, pal: { skin: b.skin, acc: b.acc, eye: mixHex(ELEM_COLOR[elem], '#ffffff', 0.3) }, aura: ELEM_COLOR[elem], seed: rng.int(1, 999), crown: b.crown };
     const pool = [...ENEMY_POOL[elem], ...ENEMY_POOL[DARK]].filter((v, i, a) => a.indexOf(v) === i);
     rng.shuffle(pool);
     return {
@@ -127,8 +85,13 @@ export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
   }
   const a = rng.pick(ARCH);
   const elem = rng.pick(a.elems);
-  const look = lookFor(a, rng, elem, tier === 'elite');
-  const name = rng.pick(SYL1) + rng.pick(SYL2);
+  const skin = mixHex(rng.pick(a.skins), ELEM_COLOR[elem], a.tint);
+  const look: Look = {
+    art: a.art,
+    pal: { skin, acc: mixHex(ELEM_COLOR[elem], '#000000', 0.1), eye: mixHex(ELEM_COLOR[elem], '#ffffff', 0.3), hair: a.hair },
+    aura: ELEM_COLOR[elem],
+    seed: rng.int(1, 999),
+  };
   const traits: string[] = [];
   if (tier === 'elite') traits.push(rng.pick(Object.keys(TRAITS)));
   else if (floor >= 3 && rng.chance(0.3)) traits.push(rng.pick(Object.keys(TRAITS)));
@@ -136,12 +99,13 @@ export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
   const pool = ENEMY_POOL[elem].filter((id) => tier === 'elite' || floor >= 4 || SPELLS[id].tier === 1);
   rng.shuffle(pool);
   const spells = pool.slice(0, nSpells).map((id) => ({ id, lvl: tier === 'elite' || floor >= 5 ? 2 : 1 }));
+  const scale = 0.9 + floor * 0.13;
   let hp = Math.round(a.hp * scale * (tier === 'elite' ? 1.3 : 1) * rng.range(0.92, 1.08));
   if (traits.includes('ancient')) hp = Math.round(hp * 1.3);
-  const epi = rng.pick(EPITHET[elem]);
   const tr = traits.map((t) => TRAITS[t]).join(' ');
   return {
-    name, title: `${tr ? tr + ' ' : ''}${epi} ${a.title}`,
+    name: rng.pick(NAMES),
+    title: `${tr ? tr + ' ' : ''}${a.title} ${rng.pick(a.places)}`,
     elem, hp, skull: (floor <= 2 ? 1 : floor <= 5 ? 2 : 3) + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
     pow: 0.75 + floor * 0.08 + (tier === 'elite' ? 0.15 : 0),
     spells, look, tier, traits,

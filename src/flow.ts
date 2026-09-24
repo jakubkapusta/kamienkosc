@@ -2,7 +2,7 @@ import { app } from './app';
 import { sfx } from './core/audio';
 import { hash, RNG } from './core/rng';
 import { gemArt } from './gfx/gems';
-import { drawPortrait } from './gfx/portrait';
+import { portraitURL } from './gfx/portrait';
 import { CLASSES, MODS, RELICS } from './game/content';
 import { genEnemy, type Tier } from './game/enemies';
 import { EVENTS } from './game/events';
@@ -13,23 +13,32 @@ import {
 } from './game/run';
 import { PLAYER_SPELLS, SPELLS, spellPrice } from './game/spells';
 import { BattleScene, battleSeed, type BattleResult } from './scenes/battle';
-import { MapScene } from './scenes/map';
+import { MapScene, placeOf } from './scenes/map';
 import { MenuScene } from './scenes/menu';
 import { el, esc, overlay, relicHTML, spellHTML, toast } from './ui/dom';
 
-const portraitCache = new Map<string, string>();
-function portraitURL(cls: string) {
-  let u = portraitCache.get(cls);
-  if (!u) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 200;
-    const ctx = c.getContext('2d')!;
-    drawPortrait(ctx, CLASSES[cls].look, 100, 100, 70, 1.2, { hit: 0, dead: 0, poison: false, flash: 0, flashColor: '#fff' });
-    u = c.toDataURL();
-    portraitCache.set(cls, u);
-  }
-  return u;
-}
+const portraitOf = (cls: string) => portraitURL(CLASSES[cls].look);
+
+const SHOPS: Record<string, { where: string; who: string; greet: string; potion: string; potionNote: string; upgrade: string; bye: string }> = {
+  ropuszka: {
+    where: 'sklep „Ropuszka”',
+    who: 'Pani Grażynka przy kasie',
+    greet: '„Ma pan naszą aplikację? Nie? To płaci pan jak frajer. Następny!”',
+    potion: 'Hot-dog z mikrofali',
+    potionNote: 'Parówka niewiadomego pochodzenia.',
+    upgrade: 'Gazetka z krzyżówką',
+    bye: 'Dziękuję, do widzenia',
+  },
+  stacja: {
+    where: 'stacja paliw „Sokół”',
+    who: 'Pan Zbyszek z nocnej zmiany',
+    greet: '„Który dystrybutor? Żaden? To może kawka, hot-dog, płyn do spryskiwaczy?”',
+    potion: 'Kawa z automatu',
+    potionNote: 'Serce przyspiesza, ręce przestają się trząść.',
+    upgrade: 'Atlas drogowy z 1998',
+    bye: 'Nic nie tankuję, dzięki',
+  },
+};
 
 const coinImg = () => `<img class="coin" src="${gemArt.icon(5)}" alt="">`;
 
@@ -55,14 +64,13 @@ export class Game {
     const m = el(`<div class="screen menu in">
       <div class="menu-inner">
         <div class="title-block">
-          <div class="eyebrow">klejnoty · czaszki · forsa</div>
-          <h1 class="logo"><span>Kamień, Kość</span><span>i Kasa</span></h1>
-          <p class="tagline">Dopasowuj kamienie, zbieraj manę, miażdż potwory czarami. Każda wyprawa losuje nową mapę, wrogów i anomalie.</p>
+          <h1 class="logo" aria-label="Kamień, Kość i Kasa"><span class="n1">Kamie<span class="flick">ń</span>, Kość</span><span class="n2">i Kasa</span></h1>
+          <p class="tagline">Tłucz diabliki z działek i urzędników z zaświatów. Każda wyprawa jest inna, każda kończy się tak samo.</p>
         </div>
         <div class="menu-actions">
           ${saved ? `<button class="btn primary" data-a="continue">Kontynuuj wyprawę<small>${esc(CLASSES[saved.cls].name)} · ${saved.hp}/${saved.maxHp} PŻ · piętro ${Math.max(1, floorOf(saved))}/8</small></button>` : ''}
           <button class="btn ${saved ? '' : 'primary'}" data-a="new">Nowa wyprawa</button>
-          <button class="btn" data-a="daily">Wyzwanie dnia<small>${dailyDone ? `dzisiejszy wynik: ${dailyDone}` : 'jedna mapa na dziś, ten sam układ dla każdego'}</small></button>
+          <button class="btn" data-a="daily">Wyzwanie dnia<small>${dailyDone ? `dzisiejszy wynik: ${dailyDone}` : 'jedna mapa na dziś, dla wszystkich ta sama'}</small></button>
         </div>
         <div class="menu-foot">
           <span>Wyprawy <b>${meta.runs}</b></span><span>Zwycięstwa <b>${meta.wins}</b></span><span>Rekord <b>${meta.best}</b></span>
@@ -87,13 +95,13 @@ export class Game {
         this.run = saved;
         this.resume();
       } else if (a === 'new') {
-        if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie.'))) return;
+        if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie. Na zawsze.'))) return;
         const cls = await this.pickClass();
         if (!cls) return;
         this.closeMenu();
         this.begin(newRun(cls, (Math.random() * 2 ** 32) >>> 0, null));
       } else if (a === 'daily') {
-        if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie.'))) return;
+        if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie. Na zawsze.'))) return;
         const seed = hash('daily', today);
         const cls = new RNG(seed).pick(Object.keys(CLASSES));
         this.closeMenu();
@@ -114,13 +122,13 @@ export class Game {
   private pickClass(): Promise<string | null> {
     const cards = Object.entries(CLASSES)
       .map(([id, c]) => `<button class="pick class-card" data-c="${id}" style="--el:${c.look.aura}">
-          <img src="${portraitURL(id)}" alt="">
-          <div><strong>${c.name}</strong><span class="hp-pill">♥ ${c.hp}</span>
+          <img src="${portraitOf(id)}" alt="">
+          <div><strong>${c.name}</strong><span class="hp-pill">♥ ${c.hp} PŻ</span>
           <p>${esc(c.desc)}</p><p class="perk">${esc(c.perk)}</p>
           <p class="starts">${c.spells.map((s) => esc(SPELLS[s].name)).join(' · ')}</p></div>
         </button>`)
       .join('');
-    return overlay<string | null>(`<h2>Wybierz bohatera</h2><div class="choices">${cards}</div><button class="btn ghost" data-x>Wróć</button>`, (root, close) => {
+    return overlay<string | null>(`<h2>Kto dziś idzie?</h2><div class="choices">${cards}</div><button class="btn ghost" data-x>Wróć</button>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-c]').forEach((b) => b.addEventListener('click', () => close(b.dataset.c!)));
       root.querySelector('[data-x]')!.addEventListener('click', () => close(null));
     });
@@ -205,8 +213,8 @@ export class Game {
         this.showHud('map');
         const relic = randomRelics(run, rng, 1)[0];
         const gold = rng.int(25, 45);
-        await overlay<void>(`<div class="eyebrow">skarb</div><h2>Zapomniana skrzynia</h2><p class="lead">Wieko ustępuje z jękiem. W środku błyszczy złoto.</p>
-          ${relic ? relicHTML(relic) : ''}<p class="gain">${coinImg()} +${gold} złota</p><button class="btn primary" data-ok>Weź wszystko</button>`, (root, close) => {
+        await overlay<void>(`<div class="eyebrow">słoik babci</div><h2>Za ogórkami</h2><p class="lead">W piwnicy, za rzędem ogórków z 2011 roku, stoi słoik. Nie ma w nim ogórków.</p>
+          ${relic ? relicHTML(relic) : ''}<p class="gain">${coinImg()} +${gold} zł</p><button class="btn primary" data-ok>Babcia by chciała</button>`, (root, close) => {
           root.querySelector('[data-ok]')!.addEventListener('click', () => close());
         });
         if (relic) addRelic(run, relic);
@@ -221,7 +229,7 @@ export class Game {
       case 'learn': {
         this.showHud('map');
         const opts = rng.shuffle(PLAYER_SPELLS.filter((id) => !run.spells.some((s) => s.id === id))).slice(0, 3);
-        await this.learnFrom(opts, 'Księga odsłania zaklęcia', true);
+        await this.learnFrom(opts, 'Poradnik domowego czarodzieja', true);
         return this.finishNode();
       }
       case 'relic': {
@@ -229,7 +237,7 @@ export class Game {
         const relic = randomRelics(run, rng, 1)[0];
         if (relic) {
           addRelic(run, relic);
-          await overlay<void>(`<h2>Nowy relikt</h2>${relicHTML(relic)}<button class="btn primary" data-ok>Dalej</button>`, (root, close) => {
+          await overlay<void>(`<h2>Skarb pana Zdzisia</h2>${relicHTML(relic)}<button class="btn primary" data-ok>Dalej</button>`, (root, close) => {
             root.querySelector('[data-ok]')!.addEventListener('click', () => close());
           });
         }
@@ -302,7 +310,7 @@ export class Game {
     if (st.tier === 'elite') {
       const opts = randomRelics(run, rng, 2);
       if (opts.length) {
-        const pick = await overlay<string>(`<div class="eyebrow">łup elity</div><h2>Wybierz relikt</h2>
+        const pick = await overlay<string>(`<div class="eyebrow">po grubej rybie zostało</div><h2>Weź pamiątkę</h2>
           <div class="choices">${opts.map((id) => `<button class="pick" data-r="${id}">${relicHTML(id)}</button>`).join('')}</div>`, (root, close) => {
           root.querySelectorAll<HTMLElement>('[data-r]').forEach((b) => b.addEventListener('click', () => close(b.dataset.r!)));
         });
@@ -311,16 +319,16 @@ export class Game {
       }
     }
     const opts = rng.shuffle(PLAYER_SPELLS.filter((id) => !run.spells.some((s) => s.id === id))).slice(0, 3);
-    await this.learnFrom(opts, 'Zwycięstwo!', false, st.gold, st.heal);
+    await this.learnFrom(opts, 'Pozamiatane!', false, st.gold, st.heal);
   }
 
   private async learnFrom(opts: string[], title: string, fromEvent: boolean, gold?: number, heal?: number) {
     const run = this.run!;
-    const pick = await overlay<string | null>(`<div class="eyebrow">${fromEvent ? 'nowa wiedza' : 'łup'}</div><h2>${esc(title)}</h2>
-      ${gold || heal ? `<p class="gain">${gold ? `${coinImg()} +${gold} złota` : ''}${heal ? `<span class="heal"><i class="heart"></i>+${heal} PŻ</span>` : ''}</p>` : ''}
-      <p class="lead">Wybierz czar do księgi (maks. 4).</p>
+    const pick = await overlay<string | null>(`<div class="eyebrow">${fromEvent ? 'nowa wiedza' : 'po walce'}</div><h2>${esc(title)}</h2>
+      ${gold || heal ? `<p class="gain">${gold ? `${coinImg()} +${gold} zł` : ''}${heal ? `<span class="heal"><i class="heart"></i>+${heal} PŻ</span>` : ''}</p>` : ''}
+      <p class="lead">Wybierz czar do zeszytu (mieści 4).</p>
       <div class="choices">${opts.map((id) => `<button class="pick" data-s="${id}">${spellHTML({ id, lvl: 1 })}</button>`).join('')}</div>
-      <button class="btn ghost" data-x>Pomiń${fromEvent ? '' : ' (+10 złota)'}</button>`, (root, close) => {
+      <button class="btn ghost" data-x>Pomiń${fromEvent ? '' : ' (+10 zł)'}</button>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-s]').forEach((b) => b.addEventListener('click', () => close(b.dataset.s!)));
       root.querySelector('[data-x]')!.addEventListener('click', () => close(null));
     });
@@ -338,7 +346,7 @@ export class Game {
       saveRun(run);
       return true;
     }
-    const idx = await overlay<number>(`<h2>Księga jest pełna</h2><p class="lead">Który czar zastąpić zaklęciem <b>${esc(SPELLS[id].name)}</b>?</p>
+    const idx = await overlay<number>(`<h2>Zeszyt jest pełny</h2><p class="lead">Który czar zastąpić zaklęciem <b>${esc(SPELLS[id].name)}</b>?</p>
       <div class="choices">${run.spells.map((s, i) => `<button class="pick" data-i="${i}">${spellHTML(s)}</button>`).join('')}</div>
       <button class="btn ghost" data-x>Zachowaj obecne</button>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-i]').forEach((b) => b.addEventListener('click', () => close(+b.dataset.i!)));
@@ -357,7 +365,7 @@ export class Game {
       toast('Wszystkie czary są już ulepszone');
       return false;
     }
-    const idx = await overlay<number>(`<h2>${esc(title)}</h2>${price ? `<p class="lead">Koszt: ${price} złota</p>` : ''}
+    const idx = await overlay<number>(`<h2>${esc(title)}</h2>${price ? `<p class="lead">Koszt: ${price} zł</p>` : ''}
       <div class="choices">${up.map(([s, i]) => `<button class="pick" data-i="${i}">${spellHTML(s, `<p class="next">Po ulepszeniu: ${esc(SPELLS[s.id].desc(2))}</p>`)}</button>`).join('')}</div>
       <button class="btn ghost" data-x>Anuluj</button>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-i]').forEach((b) => b.addEventListener('click', () => close(+b.dataset.i!)));
@@ -407,10 +415,10 @@ export class Game {
     const heal = Math.min(run.maxHp - run.hp, Math.round(run.maxHp * pct));
     const canUp = run.spells.some((s) => s.lvl < 2);
     for (;;) {
-      const a = await overlay<string>(`<div class="eyebrow">obozowisko</div><h2>Ogień trzaska cicho</h2><p class="lead">Masz chwilę wytchnienia. Na co ją poświęcisz?</p>
+      const a = await overlay<string>(`<div class="eyebrow">ognisko</div><h2>Kiełbasa na patyku</h2><p class="lead">Ogień trzaska, kiełbasa skwierczy, gdzieś ktoś gra na gitarze „Hej, sokoły”. Chwila spokoju.</p>
         <div class="choices">
-          <button class="pick option" data-a="heal"><strong>Odpocznij</strong><span>Leczy ${heal} PŻ (${Math.round(pct * 100)}% zdrowia)</span></button>
-          <button class="pick option" data-a="up" ${canUp ? '' : 'disabled'}><strong>Medytuj</strong><span>Ulepsz jeden czar</span></button>
+          <button class="pick option" data-a="heal"><strong>Zjedz i się zdrzemnij</strong><span>Leczy ${heal} PŻ (${Math.round(pct * 100)}% zdrowia)</span></button>
+          <button class="pick option" data-a="up" ${canUp ? '' : 'disabled'}><strong>Poczytaj notatki</strong><span>Ulepsz jeden czar</span></button>
         </div>`, (root, close) => {
         root.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => b.addEventListener('click', () => close(b.dataset.a!)));
       });
@@ -429,6 +437,7 @@ export class Game {
     const spells = rng.shuffle(PLAYER_SPELLS.filter((id) => !run.spells.some((s) => s.id === id))).slice(0, 3);
     const relics = randomRelics(run, rng, 2);
     const relicPrice = relics.map(() => 90 + rng.int(0, 35));
+    const shop = SHOPS[placeOf(run, n)] ?? SHOPS.ropuszka;
     const key = (k: string) => `${n.id}:${k}`;
     const bought = (k: string) => run.bought.includes(key(k));
     const buy = (k: string, price: number) => {
@@ -440,15 +449,15 @@ export class Game {
     };
     for (;;) {
       const row = (k: string, inner: string, price: number) =>
-        `<div class="shop-row ${bought(k) ? 'sold' : ''}">${inner}<button class="btn price" data-k="${k}" ${bought(k) || run.gold < price ? 'disabled' : ''}>${bought(k) ? 'sprzedane' : `${coinImg()} ${price}`}</button></div>`;
-      const html = `<div class="eyebrow">kupiec</div><h2>Wędrowny kramarz</h2><p class="lead">„Wszystko ma swoją cenę, wędrowcze." Masz ${coinImg()} <b>${run.gold}</b>.</p>
+        `<div class="shop-row ${bought(k) ? 'sold' : ''}">${inner}<button class="btn price" data-k="${k}" ${bought(k) || run.gold < price ? 'disabled' : ''}>${bought(k) ? 'sprzedane' : `${coinImg()} ${price} zł`}</button></div>`;
+      const html = `<div class="eyebrow">${shop.where}</div><h2>${shop.who}</h2><p class="lead">${shop.greet} Masz ${coinImg()} <b>${run.gold} zł</b>.</p>
         <div class="shop">
           ${spells.map((id) => row(`s:${id}`, spellHTML({ id, lvl: 1 }), spellPrice(SPELLS[id]))).join('')}
           ${relics.map((id, i) => row(`r:${id}`, relicHTML(id), relicPrice[i])).join('')}
-          ${row('potion', `<div class="option-like"><strong>Mikstura życia</strong><p>Leczy 20 PŻ.</p></div>`, 28)}
-          ${row('upgrade', `<div class="option-like"><strong>Nauka u mistrza</strong><p>Ulepsz jeden czar.</p></div>`, 60)}
+          ${row('potion', `<div class="option-like"><strong>${shop.potion}</strong><p>Leczy 20 PŻ. ${shop.potionNote}</p></div>`, 28)}
+          ${row('upgrade', `<div class="option-like"><strong>${shop.upgrade}</strong><p>Ulepsz jeden czar.</p></div>`, 60)}
         </div>
-        <button class="btn primary" data-leave>Ruszaj dalej</button>`;
+        <button class="btn primary" data-leave>${shop.bye}</button>`;
       const k = await overlay<string>(html, (root, close) => {
         root.querySelectorAll<HTMLElement>('[data-k]').forEach((b) => b.addEventListener('click', () => close(b.dataset.k!)));
         root.querySelector('[data-leave]')!.addEventListener('click', () => close(''));
@@ -487,17 +496,18 @@ export class Game {
     saveRun(null);
     this.clearHud();
     const mins = Math.max(1, Math.round((Date.now() - run.stats.start) / 60000));
-    const a = await overlay<string>(`<div class="eyebrow">${won ? 'wyprawa zakończona' : 'koniec wyprawy'}</div>
-      <h2 class="${won ? 'win' : 'lose'}">${won ? 'Władca obalony!' : 'Poległeś'}</h2>
+    const a = await overlay<string>(`<div class="eyebrow">${won ? 'wyprawa zaliczona' : 'nekrolog'}</div>
+      <h2 class="${won ? 'win' : 'lose'}">${won ? 'Szef pokonany!' : 'Tu spoczywa'}</h2>
+      <p class="lead">${won ? 'Wracasz do domu z tarczą. I z reklamówką łupów.' : `${esc(CLASSES[run.cls].name)}. ${run.cls === 'druid' ? 'Odeszła' : 'Odszedł'} tak, jak żył${run.cls === 'druid' ? 'a' : ''}: w pośpiechu.`}</p>
       <p class="score">${sc}<small>${record ? 'nowy rekord!' : 'punktów'}</small></p>
       <dl class="stats">
-        <div><dt>Pokonani wrogowie</dt><dd>${run.stats.kills}</dd></div>
-        <div><dt>Najdłuższa kaskada</dt><dd>×${run.stats.maxCombo}</dd></div>
+        <div><dt>Spuszczony łomot</dt><dd>${run.stats.kills}</dd></div>
+        <div><dt>Najdłuższe combo</dt><dd>×${run.stats.maxCombo}</dd></div>
         <div><dt>Rozbite kamienie</dt><dd>${run.stats.gems}</dd></div>
-        <div><dt>Złoto</dt><dd>${run.gold}</dd></div>
+        <div><dt>Kasa</dt><dd>${run.gold}</dd></div>
         <div><dt>Czas</dt><dd>${mins} min</dd></div>
       </dl>
-      <div class="row"><button class="btn" data-a="menu">Menu</button><button class="btn primary" data-a="again">Nowa wyprawa</button></div>`, (root, close) => {
+      <div class="row"><button class="btn" data-a="menu">Menu</button><button class="btn primary" data-a="again">Jeszcze raz</button></div>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => b.addEventListener('click', () => close(b.dataset.a!)));
     }, won ? 'victory' : 'defeat');
     this.run = null;
@@ -532,12 +542,12 @@ export class Game {
       return;
     }
     h.innerHTML = `<div class="hud-stats">
-        <img class="hud-por" src="${portraitURL(run.cls)}" alt="">
+        <img class="hud-por" src="${portraitOf(run.cls)}" alt="">
         <span class="hud-hp"><i class="heart"></i>${run.hp}<small>/${run.maxHp}</small></span>
-        <span class="hud-gold">${coinImg()}${run.gold}</span>
+        <span class="hud-gold">${coinImg()}${run.gold} zł</span>
         <span class="hud-floor">Piętro ${Math.max(1, floorOf(run))}/8</span>
       </div>
-      <div class="hud-btns"><button class="icon-btn wide" data-h="bag">Księga</button><button class="icon-btn" data-h="menu" aria-label="Menu"><i class="bars"></i></button></div>`;
+      <div class="hud-btns"><button class="icon-btn wide" data-h="bag">Zeszyt</button><button class="icon-btn" data-h="menu" aria-label="Menu"><i class="bars"></i></button></div>`;
   }
 
   private clearHud() {
@@ -547,22 +557,22 @@ export class Game {
 
   private inventory() {
     const run = this.run!;
-    overlay<void>(`<div class="eyebrow">${esc(CLASSES[run.cls].name)}</div><h2>Księga i relikwie</h2>
+    overlay<void>(`<div class="eyebrow">${esc(CLASSES[run.cls].name)}</div><h2>Zeszyt i graty</h2>
       <p class="lead">${esc(CLASSES[run.cls].perk)}</p>
-      <h3>Czary</h3><div class="choices">${run.spells.map((s) => spellHTML(s)).join('')}</div>
-      <h3>Relikty</h3><div class="choices">${run.relics.length ? run.relics.map((r) => relicHTML(r)).join('') : '<p class="muted">Jeszcze żadnych. Szukaj ich w skarbach, u kupca i u elitarnych wrogów.</p>'}</div>
+      <h3>Czary w zeszycie</h3><div class="choices">${run.spells.map((s) => spellHTML(s)).join('')}</div>
+      <h3>Graty w kieszeniach</h3><div class="choices">${run.relics.length ? run.relics.map((r) => relicHTML(r)).join('') : '<p class="muted">Puste kieszenie. Graty znajdziesz w słoikach babci, w sklepach i u grubych ryb.</p>'}</div>
       <button class="btn primary" data-ok>Zamknij</button>`, (root, close) => {
       root.querySelector('[data-ok]')!.addEventListener('click', () => close());
     });
   }
 
   private async pause(): Promise<void> {
-    const a = await overlay<string>(`<h2>Pauza</h2><p class="lead">Postęp zapisuje się sam — możesz zamknąć kartę w dowolnej chwili.</p>
+    const a = await overlay<string>(`<h2>Przerwa na papierosa</h2><p class="lead">Postęp zapisuje się sam. Możesz wysiąść na swojej stacji.</p>
       <div class="choices">
         <button class="btn primary" data-a="back">Wróć do gry</button>
         <button class="btn" data-a="sound">${sfx.on ? 'Wyłącz dźwięk' : 'Włącz dźwięk'}</button>
         <button class="btn" data-a="menu">Menu główne</button>
-        <button class="btn danger" data-a="quit">Porzuć wyprawę</button>
+        <button class="btn danger" data-a="quit">Poddaj się</button>
       </div>`, (root, close) => {
       root.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => b.addEventListener('click', () => close(b.dataset.a!)));
     });
@@ -575,7 +585,7 @@ export class Game {
       return this.menu();
     }
     if (a === 'quit') {
-      if (!(await this.confirm('Porzucić wyprawę?', 'Tej wyprawy nie da się wznowić.'))) return;
+      if (!(await this.confirm('Na pewno?', 'Tej wyprawy nie da się wznowić. Babcia będzie zawiedziona.'))) return;
       this.gameOver(false);
     }
   }

@@ -1,34 +1,31 @@
-import '@fontsource/grenze-gotisch/latin-600.css';
-import '@fontsource/grenze-gotisch/latin-ext-600.css';
-import '@fontsource/grenze-gotisch/latin-700.css';
-import '@fontsource/grenze-gotisch/latin-ext-700.css';
-import '@fontsource/alegreya-sans/latin-400.css';
-import '@fontsource/alegreya-sans/latin-ext-400.css';
-import '@fontsource/alegreya-sans/latin-500.css';
-import '@fontsource/alegreya-sans/latin-ext-500.css';
-import '@fontsource/alegreya-sans/latin-700.css';
-import '@fontsource/alegreya-sans/latin-ext-700.css';
-import '@fontsource/alegreya-sans/latin-800.css';
-import '@fontsource/alegreya-sans/latin-ext-800.css';
-import '@fontsource/alegreya-sans/latin-400-italic.css';
+import '@fontsource/lilita-one/latin-400.css';
+import '@fontsource/lilita-one/latin-ext-400.css';
+import '@fontsource/signika/latin-400.css';
+import '@fontsource/signika/latin-ext-400.css';
+import '@fontsource/signika/latin-600.css';
+import '@fontsource/signika/latin-ext-600.css';
+import '@fontsource/signika/latin-700.css';
+import '@fontsource/signika/latin-ext-700.css';
 import './style.css';
 import { initApp } from './app';
 import { Game } from './flow';
+import { gemArt } from './gfx/gems';
 
 async function boot() {
   try {
     await Promise.race([
       Promise.all([
-        document.fonts.load('600 20px "Grenze Gotisch"', 'Ąę'),
-        document.fonts.load('700 20px "Grenze Gotisch"', 'Ąę'),
-        document.fonts.load('800 16px "Alegreya Sans"', 'Ąę'),
-        document.fonts.load('600 16px "Alegreya Sans"', 'Ąę'),
+        document.fonts.load('400 20px "Lilita One"', 'Ąę'),
+        document.fonts.load('700 16px "Signika"', 'Ąę'),
+        document.fonts.load('600 16px "Signika"', 'Ąę'),
+        document.fonts.load('400 16px "Signika"', 'Ąę'),
       ]),
       new Promise((r) => setTimeout(r, 1500)),
     ]);
   } catch {
     /* fall back to system fonts */
   }
+  await gemArt.load();
   const app = initApp();
   const game = new Game();
   game.start();
@@ -42,4 +39,5 @@ async function boot() {
   }
 }
 
-boot();
+if (import.meta.env.DEV && location.hash === '#galeria') import('./gallery').then((m) => m.gallery());
+else boot();

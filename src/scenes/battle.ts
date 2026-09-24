@@ -5,7 +5,7 @@ import { AIR, COIN, EARTH, ELEM_COLOR, FIRE, SKULL, THEMES } from '../core/types
 import { mixHex, rgba } from '../gfx/color';
 import { FX } from '../gfx/fx';
 import { GEM_PAL, gemArt } from '../gfx/gems';
-import { drawPortrait } from '../gfx/portrait';
+import { drawPortrait, preloadLook } from '../gfx/portrait';
 import { glow, roundRect, star } from '../gfx/sprites';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, NOVA, type Birth, type Explosion, type Gem } from '../game/board';
@@ -40,9 +40,10 @@ export interface BattleSetup {
 }
 export interface BattleResult { won: boolean; gold: number; hp: number; maxCombo: number; turns: number; gems: number }
 
+const ENAMEL = ['#b3261e', '#1d4fa3', '#1f7a3e', '#a8740a', '#6a2a9a'];
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
-const DISPLAY = '"Grenze Gotisch", Georgia, serif';
-const BODY = '"Alegreya Sans", system-ui, sans-serif';
+const DISPLAY = '"Lilita One", "Arial Black", sans-serif';
+const BODY = '"Signika", system-ui, sans-serif';
 
 export class BattleScene implements Scene {
   fx = new FX();
@@ -135,6 +136,8 @@ export class BattleScene implements Scene {
       for (const g of this.board.g) if (g) g.py -= 9 + g.px * 0.35 + Math.random() * 0.4;
     }
     app.bg.setTheme(...THEMES[spec.elem]);
+    preloadLook(this.P.look);
+    preloadLook(this.E.look);
     this.resize();
     this.main();
   }
@@ -198,12 +201,12 @@ export class BattleScene implements Scene {
       const tx = Epor.x + er + 14, tw = right - 46 - tx;
       const ew = (tw - 3 * 8) / 4;
       const E: Side = {
-        por: Epor, name: { x: tx, y: top + 14, align: 'left', size: 19 },
-        hp: { x: tx, y: top + 30, w: tw, h: 14 },
-        mana: [0, 1, 2, 3].map((k) => ({ x: tx + k * (ew + 8), y: top + 54, w: ew, h: 11 })),
-        status: { x: tx, y: top + 75, dir: 1 }, spells: [], chip: true,
+        por: Epor, name: { x: tx, y: top + 12, align: 'left', size: 19 },
+        hp: { x: tx, y: top + 44, w: tw, h: 14 },
+        mana: [0, 1, 2, 3].map((k) => ({ x: tx + k * (ew + 8), y: top + 66, w: ew, h: 11 })),
+        status: { x: tx, y: top + 88, dir: 1 }, spells: [], chip: true,
       };
-      const chipY = Epor.y + er + 14 + grow * 6;
+      const chipY = Math.max(Epor.y + er + 14, top + 102) + grow * 6;
       const cw = (right - left - (nE - 1) * 6) / Math.max(1, nE);
       E.spells = Array.from({ length: nE }, (_, k) => ({ x: left + k * (cw + 6), y: chipY, w: cw, h: 34 }));
       const enemyBottom = nE ? chipY + 34 + 8 : Epor.y + er + 12;
@@ -262,7 +265,7 @@ export class BattleScene implements Scene {
       const extra = await this.turn(this.cur);
       if (this.over) break;
       if (extra) {
-        this.banner('Dodatkowa tura!', '', this.cur === this.P ? '#ffd76a' : '#ff6a6a', 30, 1.1);
+        this.banner('Jeszcze raz!', '', this.cur === this.P ? '#ffd76a' : '#ff6a6a', 30, 1.1);
         sfx.extra();
         if (this.cur === this.P && has(this.run, 'warhorn')) {
           this.hurt(this.E, 3, 0.3);
@@ -283,7 +286,7 @@ export class BattleScene implements Scene {
     this.introK = 0;
     if (!this.setup.save) {
       await this.wait(0.15);
-      const tier = spec.tier === 'boss' ? 'WŁADCA' : spec.tier === 'elite' ? 'ELITA' : '';
+      const tier = spec.tier === 'boss' ? 'SZEF' : spec.tier === 'elite' ? 'GRUBA RYBA' : '';
       const traits = spec.traits.map((t) => TRAIT_DESC[t]).join(', ');
       this.banner(spec.name, `${tier ? tier + ' · ' : ''}${spec.title}${traits ? ` — ${traits}` : ''}`, ELEM_COLOR[spec.elem], 38, 2.1);
       sfx.cast(spec.elem);
@@ -327,7 +330,7 @@ export class BattleScene implements Scene {
     }
     if (f.stun > 0) {
       f.stun--;
-      this.banner(f === this.P ? 'Jesteś ogłuszony' : 'Wróg ogłuszony', 'tura przepada', '#ffe27a', 26, 1.2);
+      this.banner(f === this.P ? 'Zamroczyło cię' : 'Wroga zamroczyło', 'tura przepada', '#ffe27a', 26, 1.2);
       await this.wait(1.1);
       this.tickStr(f);
       return false;
@@ -359,7 +362,7 @@ export class BattleScene implements Scene {
         if (def.quick) continue;
         if (this.freeSpell) {
           this.freeSpell = false;
-          this.banner('Klepsydra', 'czar nie kończy tury', '#ffe27a', 22, 1);
+          this.banner('Zegarek z komunii', 'czar nie kończy tury', '#ffe27a', 22, 1);
           continue;
         }
         return false;
@@ -422,13 +425,13 @@ export class BattleScene implements Scene {
     };
     anim();
     if (won) {
-      this.banner('Zwycięstwo!', this.gold ? `+${this.gold} złota z monet` : '', '#ffd76a', 48, 2.4);
+      this.banner('Pozamiatane!', this.gold ? `+${this.gold} zł z monet` : '', '#ffd76a', 48, 2.4);
       for (let k = 0; k < 20; k++) {
         const L = this.L;
         this.fx.after(0.3 + k * 0.04, () => this.fx.twinkle(L.bx + Math.random() * L.bs, L.by + Math.random() * L.bs, 18 + Math.random() * 20, 0.8));
       }
     } else {
-      this.banner('Poległeś', 'wyprawa dobiegła końca', '#ff5468', 48, 2.4);
+      this.banner('Leżysz', 'i już nie wstaniesz', '#ff5468', 48, 2.4);
     }
     await this.wait(2.3);
     this.done({ won, gold: this.gold, hp: this.P.hp, maxCombo: this.stats.maxCombo, turns: this.turnNo, gems: this.stats.gems });
@@ -557,11 +560,11 @@ export class BattleScene implements Scene {
         const g = counts[COIN] * (has(run, 'goldtooth') ? 2 : 1);
         this.gold += g;
         const gx = this.L.gold.x - 30, gy = this.L.gold.y;
-        for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, gx, gy, '#ffcf4a', 0.5, () => sfx.coin(), cellSz * 0.2);
-        this.fx.text(gx - 10, gy + 18, `+${g}`, '#ffd76a', 16, 0.9, 30);
+        for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, gx, gy, '#e4ecff', 0.5, () => sfx.coin(), cellSz * 0.2);
+        this.fx.text(gx - 10, gy + 18, `+${g} zł`, '#eef3f8', 16, 0.9, 30);
       } else {
         const [tx, ty] = this.porXY(actor);
-        for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, tx, ty, '#ffcf4a', 0.5, null, cellSz * 0.18);
+        for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, tx, ty, '#e4ecff', 0.5, null, cellSz * 0.18);
       }
     }
     if (isP && nExp && has(run, 'runeflame')) this.hurt(foe, 3 * nExp, 0.4);
@@ -596,7 +599,7 @@ export class BattleScene implements Scene {
 
   private combo(level: number) {
     const L = this.L;
-    const words = ['', '', 'Kaskada', 'Lawina', 'Nawałnica', 'Kataklizm'];
+    const words = ['', '', 'No proszę', 'Ale jazda', 'Jak w totka', 'Grubo', 'Kosmos'];
     const w = words[Math.min(level, words.length - 1)];
     this.banner(`${w} ×${level}`, '', mixHex('#ffd76a', '#ff5ad2', Math.min(1, (level - 2) / 4)), 26 + Math.min(level, 7) * 3, 0.9);
     if (level >= 4) this.fx.flash('#ffe0a0', 0.25);
@@ -606,7 +609,7 @@ export class BattleScene implements Scene {
 
   private async reshuffle() {
     const b = this.board;
-    this.banner('Brak ruchów', 'plansza się tasuje', '#c9a6ff', 24, 1.1);
+    this.banner('Pat', 'tasujemy od nowa', '#c9a6ff', 24, 1.1);
     await this.wait(0.4);
     const gems = b.g.filter((g): g is Gem => !!g);
     for (let tries = 0; tries < 60; tries++) {
@@ -794,7 +797,7 @@ export class BattleScene implements Scene {
       stun: async (turns) => {
         foe.stun += turns;
         const [x, y] = this.porXY(foe);
-        this.fx.text(x, y, 'Ogłuszony!', '#ffe27a', 22);
+        this.fx.text(x, y, 'Zamroczony!', '#ffe27a', 22);
         for (let k = 0; k < 5; k++) this.fx.twinkle(x + (Math.random() - 0.5) * 60, y - 30 + (Math.random() - 0.5) * 30, 20);
         await this.wait(0.5);
       },
@@ -1171,7 +1174,7 @@ export class BattleScene implements Scene {
         ctx.fillRect(L.bx + x * c, L.by + y * c, c, c);
       }
     // whose move
-    const label = this.phase === 'end' ? '' : this.cur === this.P ? 'Twój ruch' : 'Ruch wroga';
+    const label = this.phase === 'end' ? '' : this.cur === this.P ? 'Twój ruch' : 'Ruch tamtego';
     if (label && this.phase !== 'intro') {
       ctx.font = `700 12px ${BODY}`;
       const tw = ctx.measureText(label).width + 20;
@@ -1327,24 +1330,22 @@ export class BattleScene implements Scene {
     const N_ = S.name;
     ctx.textAlign = N_.align;
     ctx.textBaseline = 'middle';
-    ctx.font = `600 ${N_.size}px ${DISPLAY}`;
+    ctx.font = `400 ${N_.size}px ${DISPLAY}`;
     ctx.fillStyle = '#f3e7cf';
     const nm = f.isPlayer ? f.title : f.name;
     ctx.fillText(nm, N_.x, N_.y);
     if (this.L.wide) {
       ctx.font = `500 15px ${BODY}`;
       ctx.fillStyle = '#a497bd';
-      const sub = f.isPlayer ? `Wyprawa · piętro ${Math.max(1, this.run.visited.length + 1)}` : f.title;
+      const sub = f.isPlayer ? `Wyprawa · piętro ${Math.max(1, this.run.visited.length)}` : f.title;
       ctx.fillText(sub, N_.x, N_.y + 22);
     } else if (!f.isPlayer) {
-      const w = ctx.measureText(nm).width;
-      ctx.font = `500 12px ${BODY}`;
-      ctx.fillStyle = '#a497bd';
-      const room = this.L.E.hp.w - w - 10;
-      let sub = f.title;
-      while (sub.length > 3 && ctx.measureText(sub).width > room) sub = sub.slice(0, -2);
-      if (sub !== f.title) sub = sub.trimEnd() + '…';
-      if (room > 40) ctx.fillText(sub, N_.x + w + 8, N_.y + 1);
+      let fs = 13;
+      const room = this.L.E.hp.w + 44;
+      ctx.font = `600 ${fs}px ${BODY}`;
+      while (fs > 10 && ctx.measureText(f.title).width > room) ctx.font = `600 ${--fs}px ${BODY}`;
+      ctx.fillStyle = '#b9aed0';
+      ctx.fillText(f.title, N_.x, N_.y + 17);
     }
 
     this.drawHp(ctx, S.hp, f);
@@ -1356,8 +1357,8 @@ export class BattleScene implements Scene {
       const G = this.L.gold;
       ctx.textAlign = 'right';
       ctx.font = `800 15px ${BODY}`;
-      ctx.fillStyle = '#ffd76a';
-      const txt = `${this.run.gold + this.gold}`;
+      ctx.fillStyle = '#eef3f8';
+      const txt = `${this.run.gold + this.gold} zł`;
       ctx.fillText(txt, G.x, G.y);
       const w = ctx.measureText(txt).width;
       ctx.drawImage(gemArt.spr[COIN], G.x - w - 22, G.y - 10, 20, 20);
@@ -1493,95 +1494,143 @@ export class BattleScene implements Scene {
     }
   }
 
+  /** Spells are enamel street plates: element-coloured when ready, faded when you can't afford them. */
   private drawSpell(ctx: CanvasRenderingContext2D, r: Rect, f: Fighter, i: number, chip: boolean) {
     const inst = f.spells[i];
     if (!inst) return;
     const def = SPELLS[inst.id];
     const can = affordable(f, def);
-    const col = ELEM_COLOR[def.elem];
     const lit = can && (f.isPlayer ? this.phase === 'input' : true);
     const pressed = this.pressed && this.pressed.i === i && (this.pressed.side === 'P') === f.isPlayer;
+    const base = ENAMEL[def.elem];
+    const en = lit || !f.isPlayer ? base : mixHex(base, '#4a4858', 0.72);
+    const enD = mixHex(en, '#000000', 0.55);
+    const lip = chip ? 2 : 3;
+    const y = r.y + (pressed ? lip - 1 : 0);
+    const rad = chip ? 7 : 9;
     ctx.save();
-    if (pressed) {
-      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-      ctx.scale(0.96, 0.96);
-      ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2));
+    // ledge under the plate
+    if (!pressed) {
+      roundRect(ctx, r.x, r.y + lip, r.w, r.h, rad);
+      ctx.fillStyle = enD;
+      ctx.fill();
     }
-    const warn = !f.isPlayer && can;
-    const edge = warn ? '#ff5a6a' : '#ffd76a';
     if (lit) {
-      ctx.shadowColor = rgba(edge, 0.5 + 0.3 * Math.sin(this.t * 4));
-      ctx.shadowBlur = 14;
+      const warn = !f.isPlayer;
+      ctx.shadowColor = rgba(warn ? '#ff4a5a' : mixHex(base, '#ffffff', 0.4), 0.55 + 0.35 * Math.sin(this.t * 4));
+      ctx.shadowBlur = 16;
     }
-    roundRect(ctx, r.x, r.y, r.w, r.h, 10);
-    const g = ctx.createLinearGradient(r.x, r.y, r.x + r.w, r.y + r.h);
-    g.addColorStop(0, lit ? rgba(col, 0.32) : 'rgba(34,26,56,0.9)');
-    g.addColorStop(1, 'rgba(12,9,22,0.92)');
+    roundRect(ctx, r.x, y, r.w, r.h, rad);
+    const g = ctx.createLinearGradient(0, y, 0, y + r.h);
+    g.addColorStop(0, mixHex(en, '#ffffff', 0.2));
+    g.addColorStop(0.45, en);
+    g.addColorStop(1, mixHex(en, '#000000', 0.18));
     ctx.fillStyle = g;
     ctx.fill();
     ctx.shadowBlur = 0;
-    ctx.strokeStyle = lit ? edge : 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = lit ? 1.5 : 1;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#120c18';
     ctx.stroke();
+    roundRect(ctx, r.x + 3.5, y + 3.5, r.w - 7, r.h - 7, rad - 3);
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = rgba('#f6f3ea', lit || !f.isPlayer ? 0.95 : 0.45);
+    ctx.stroke();
+    // rivets
+    const rivet = (x: number, yy: number) => {
+      const rg = ctx.createRadialGradient(x - 0.6, yy - 0.6, 0, x, yy, 2.4);
+      rg.addColorStop(0, '#ffffff');
+      rg.addColorStop(0.5, '#b8bec6');
+      rg.addColorStop(1, '#4a5058');
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(x, yy, 2.2, 0, TAU);
+      ctx.fill();
+    };
+    if (chip) {
+      rivet(r.x + 8, y + r.h / 2);
+      rivet(r.x + r.w - 8, y + r.h / 2);
+    } else {
+      rivet(r.x + 9, y + 9);
+      rivet(r.x + r.w - 9, y + 9);
+      rivet(r.x + 9, y + r.h - 9);
+      rivet(r.x + r.w - 9, y + r.h - 9);
+      // chipped enamel
+      ctx.fillStyle = 'rgba(28,20,30,0.7)';
+      ctx.beginPath();
+      const cx = r.x + r.w * (0.62 + (i % 2) * 0.12), cy = y + r.h - 3;
+      ctx.moveTo(cx - 6, cy);
+      ctx.lineTo(cx - 3, cy - 4);
+      ctx.lineTo(cx + 1, cy - 2);
+      ctx.lineTo(cx + 6, cy - 3.5);
+      ctx.lineTo(cx + 4, cy);
+      ctx.closePath();
+      ctx.fill();
+    }
 
-    const ox = r.x + (chip ? 14 : 18);
-    const cy = chip ? r.y + 13 : r.y + 18;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = lit ? 1 : 0.45;
-    ctx.drawImage(glow(col), ox - 11, cy - 11, 22, 22);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-
-    const nameX = ox + 13;
-    let fs = chip ? 14 : 17;
-    ctx.font = `600 ${fs}px ${DISPLAY}`;
+    const padL = chip ? 16 : 16;
+    const nameX = r.x + padL;
+    const cy = chip ? y + r.h / 2 - (4) : y + 19;
+    let fs = chip ? 13 : 17;
+    ctx.font = `400 ${fs}px ${DISPLAY}`;
     const label = def.name + (inst.lvl > 1 ? '+' : '');
-    const room = r.x + r.w - nameX - (def.quick && !chip ? 44 : 8);
+    const room = r.w - padL * 2 - (def.quick && !chip ? 40 : 0);
     while (fs > 10 && ctx.measureText(label).width > room) {
       fs--;
-      ctx.font = `600 ${fs}px ${DISPLAY}`;
+      ctx.font = `400 ${fs}px ${DISPLAY}`;
     }
-    ctx.textAlign = 'left';
+    ctx.textAlign = chip ? 'center' : 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = lit || !f.isPlayer ? '#f6ecd6' : '#9d92b5';
-    ctx.fillText(label, nameX, cy + 1);
+    const tx = chip ? r.x + r.w / 2 : nameX;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillText(label, tx, cy + 1.5);
+    ctx.fillStyle = lit || !f.isPlayer ? '#ffffff' : 'rgba(255,255,255,0.6)';
+    ctx.fillText(label, tx, cy);
     if (def.quick && !chip) {
-      ctx.font = `italic 700 10px ${BODY}`;
-      ctx.textAlign = 'right';
-      ctx.fillStyle = '#ffd76a';
-      ctx.fillText('SZYBKI', r.x + r.w - 8, cy);
+      ctx.save();
+      ctx.translate(r.x + r.w - 26, y + 7);
+      ctx.rotate(0.12);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillRect(-20, -6, 40, 12);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-20, -6, 40, 12);
+      ctx.font = `700 8.5px ${BODY}`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#2a1a08';
+      ctx.fillText('SZYBKI', 0, 0.5);
+      ctx.restore();
     }
 
     if (chip) {
-      // readiness bar
+      // how close the enemy is to casting it
       let prog = 1;
       for (let c = 0; c < 4; c++) if (def.cost[c]) prog = Math.min(prog, f.manaVis[c] / def.cost[c]);
-      const bx = r.x + 8, by = r.y + r.h - 8, bw = r.w - 16;
-      roundRect(ctx, bx, by, bw, 4, 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      const bx = r.x + 16, by = y + r.h - 10, bw = r.w - 32;
+      roundRect(ctx, bx, by, bw, 3.5, 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.fill();
-      roundRect(ctx, bx, by, Math.max(4, bw * clamp(prog, 0, 1)), 4, 2);
-      ctx.fillStyle = can ? '#ff5a6a' : col;
+      roundRect(ctx, bx, by, Math.max(3.5, bw * clamp(prog, 0, 1)), 3.5, 2);
+      ctx.fillStyle = can ? '#ffe0e0' : 'rgba(255,255,255,0.75)';
       ctx.fill();
     } else {
-      let x = nameX - 2;
-      const yy = r.y + r.h - 15;
-      ctx.font = `800 12px ${BODY}`;
+      let x = nameX;
+      const yy = y + r.h - 16;
+      ctx.font = `700 13px ${BODY}`;
       ctx.textAlign = 'left';
       for (let c = 0; c < 4; c++) {
         const n = def.cost[c];
         if (!n) continue;
-        ctx.drawImage(gemArt.spr[c], x - 2, yy - 9, 18, 18);
-        ctx.fillStyle = f.mana[c] >= n ? '#ffffff' : '#ff8a8a';
-        ctx.fillText(`${n}`, x + 16, yy + 1);
-        x += 16 + ctx.measureText(`${n}`).width + 8;
+        ctx.drawImage(gemArt.spr[c], x - 3, yy - 9, 18, 18);
+        ctx.fillStyle = f.mana[c] >= n ? '#ffffff' : '#ffc4c4';
+        ctx.fillText(`${n}`, x + 15, yy + 1);
+        x += 15 + ctx.measureText(`${n}`).width + 9;
       }
       if (def.hp) {
-        ctx.fillStyle = '#ff7a86';
+        ctx.fillStyle = '#ffd0d4';
         ctx.fillText(`♥ ${def.hp} PŻ`, x, yy + 1);
       }
       if (!def.hp && def.cost.every((n) => !n)) {
-        ctx.fillStyle = '#a497bd';
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
         ctx.fillText('za darmo', x, yy + 1);
       }
     }
@@ -1621,10 +1670,10 @@ export class BattleScene implements Scene {
       ctx.translate(cx, y - subLines * 10);
       ctx.scale(s, s);
       let fs = b.size;
-      ctx.font = `700 ${fs}px ${DISPLAY}`;
+      ctx.font = `400 ${fs}px ${DISPLAY}`;
       while (fs > 14 && ctx.measureText(b.text).width > L.bs - 20) {
         fs -= 2;
-        ctx.font = `700 ${fs}px ${DISPLAY}`;
+        ctx.font = `400 ${fs}px ${DISPLAY}`;
       }
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
