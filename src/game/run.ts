@@ -11,6 +11,7 @@ export interface BattleSave {
   turnNo: number;
   gold: number;
   freeSpell: boolean;
+  caps?: number;
 }
 
 export type Step = 'battle' | 'reward' | 'event' | 'shop' | 'rest' | 'treasure' | 'upgrade' | 'learn' | 'relic';

@@ -10,6 +10,7 @@ export const GEM_PAL: GemPal[] = [
   { base: '#ffc414', light: '#fff6c0', dark: '#6e3f00', glow: '#ffd84a' }, // air topaz
   { base: '#e8dcc4', light: '#ffffff', dark: '#4d3d2c', glow: '#ff3b3b' }, // skull
   { base: '#c8d0d8', light: '#ffffff', dark: '#4a545e', glow: '#e4ecff' }, // coin (silver złotówka)
+  { base: '#b23ad0', light: '#f0b8ff', dark: '#4a0a5e', glow: '#d86aff' }, // bottle cap
 ];
 
 function render(t: number, px: number): HTMLCanvasElement {
@@ -100,7 +101,7 @@ export class GemArt {
     const px = Math.max(16, Math.round(cellCss * dpr));
     if (px === this.px) return;
     this.px = px;
-    for (let t = 0; t < 6; t++) {
+    for (let t = 0; t < GEM_SVG.length; t++) {
       this.spr[t] = render(t, px);
       this.wht[t] = whiteOf(this.spr[t]);
     }

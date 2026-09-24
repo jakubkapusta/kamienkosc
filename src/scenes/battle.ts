@@ -1,7 +1,7 @@
 import { app, type PEvent, type Scene } from '../app';
 import { buzz, sfx } from '../core/audio';
 import { clamp, easeBack, easeInOut, hash, RNG, TAU } from '../core/rng';
-import { AIR, COIN, EARTH, ELEM_COLOR, FIRE, SKULL, THEMES } from '../core/types';
+import { AIR, CAP, COIN, EARTH, ELEM_COLOR, FIRE, SKULL, THEMES } from '../core/types';
 import { mixHex, rgba } from '../gfx/color';
 import { FX } from '../gfx/fx';
 import { GEM_PAL, gemArt } from '../gfx/gems';
@@ -9,14 +9,16 @@ import { drawPortrait, preloadLook } from '../gfx/portrait';
 import { glow, roundRect, star } from '../gfx/sprites';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, NOVA, type Birth, type Explosion, type Gem } from '../game/board';
+import { BAL } from '../game/balance';
 import { CLASSES, MODS } from '../game/content';
 import { TRAIT_DESC, type EnemySpec } from '../game/enemies';
 import { Fighter, type SpellInst } from '../game/fighter';
 import { has, type BattleSave, type Run } from '../game/run';
 import { affordable, SPELLS, type FxKind, type SpellCtx } from '../game/spells';
+import { ULTS } from '../game/ult';
 import { costHTML, esc, hideTip, showTip } from '../ui/dom';
 
-type Action = { k: 'swap'; a: number; b: number } | { k: 'spell'; i: number };
+type Action = { k: 'swap'; a: number; b: number } | { k: 'spell'; i: number } | { k: 'ult' };
 interface Rect { x: number; y: number; w: number; h: number }
 interface Side {
   por: { x: number; y: number; r: number };
@@ -86,6 +88,7 @@ export class BattleScene implements Scene {
     this.E.skull = spec.skull;
     this.E.pow = spec.pow;
     this.E.vampiric = spec.traits.includes('vampiric');
+    this.P.skull = BAL.playerSkull;
     if (has(run, 'skullring')) this.P.skull += 1;
     if (has(run, 'lens')) this.P.maxMana = this.P.maxMana.map((m) => m + 6);
     if (spec.tier === 'boss') this.E.maxMana = this.E.maxMana.map((m) => m + 6);
@@ -119,6 +122,7 @@ export class BattleScene implements Scene {
       this.turnNo = sv.turnNo;
       this.gold = sv.gold;
       this.freeSpell = sv.freeSpell;
+      this.P.caps = sv.caps ?? 0;
     } else {
       this.board.fillFresh();
       const P = this.P, E = this.E;
@@ -308,7 +312,7 @@ export class BattleScene implements Scene {
     });
     this.setup.onSave({
       turn: this.cur === this.P ? 0 : 1, board: this.board.dump(), f: [f(this.P), f(this.E)],
-      rng: this.rng.s, turnNo: this.turnNo, gold: this.gold, freeSpell: this.freeSpell,
+      rng: this.rng.s, turnNo: this.turnNo, gold: this.gold, freeSpell: this.freeSpell, caps: this.P.caps,
     });
   }
 
@@ -354,6 +358,11 @@ export class BattleScene implements Scene {
       this.phase = 'busy';
       this.sel = -1;
       this.hint = null;
+      if (a.k === 'ult') {
+        await this.ultimate();
+        if (this.over) return false;
+        continue;
+      }
       if (a.k === 'spell') {
         const inst = this.P.spells[a.i];
         const def = SPELLS[inst.id];
@@ -474,7 +483,7 @@ export class BattleScene implements Scene {
       this.fx.stop(0.06);
       buzz(30);
     }
-    const counts = [0, 0, 0, 0, 0, 0];
+    const counts = [0, 0, 0, 0, 0, 0, 0];
     const pos: [number, number, number][] = [];
     for (const i of clear) {
       const g = b.g[i];
@@ -538,7 +547,7 @@ export class BattleScene implements Scene {
     if (isP && run.cls === 'pyro' && counts[FIRE]) add(actor, FIRE, 2);
     if (isP && run.cls === 'storm' && maxLen >= 4) add(actor, AIR, 3);
     if (isP && has(run, 'prismeye') && maxLen >= 4) for (let c = 0; c < 4; c++) add(actor, c, 2);
-    if (isP && run.cls === 'druid' && counts[EARTH]) this.heal(actor, 2, 0.5);
+    if (isP && run.cls === 'druid' && counts[EARTH]) this.heal(actor, 1, 0.5);
 
     if (counts[SKULL]) {
       let dmg = counts[SKULL] * (actor.skull + actor.str.amt);
@@ -567,7 +576,50 @@ export class BattleScene implements Scene {
         for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, tx, ty, '#e4ecff', 0.5, null, cellSz * 0.18);
       }
     }
+    if (counts[CAP]) {
+      const [tx, ty] = this.porXY(actor);
+      if (isP) {
+        const before = actor.caps;
+        actor.caps = Math.min(BAL.capsNeeded, actor.caps + counts[CAP]);
+        const ready = before < BAL.capsNeeded && actor.caps >= BAL.capsNeeded;
+        let k = 0;
+        for (const [x, y, t] of pos)
+          if (t === CAP)
+            this.fx.orb(x, y, tx, ty, '#d86aff', 0.5 + k++ * 0.05, () => {
+              sfx.tick(3);
+              actor.flash = 0.6;
+              actor.flashColor = '#d86aff';
+            }, cellSz * 0.22);
+        if (ready)
+          this.fx.after(0.7, () => {
+            this.banner('Supermoc gotowa!', 'dotknij portretu', '#d86aff', 26, 1.3);
+            sfx.extra();
+          });
+      } else {
+        for (const [x, y, t] of pos) if (t === CAP) this.fx.orb(x, y, tx, ty, '#d86aff', 0.5, null, cellSz * 0.18);
+      }
+    }
     if (isP && nExp && has(run, 'runeflame')) this.hurt(foe, 3 * nExp, 0.4);
+  }
+
+  private async ultimate() {
+    const u = ULTS[this.run.cls];
+    const P = this.P;
+    P.caps = 0;
+    const [x, y] = this.porXY(P);
+    const r = this.side(P).por.r;
+    for (let k = 0; k < 3; k++) this.fx.after(k * 0.12, () => this.fx.ring(x, y, '#d86aff', r, r * (2.4 + k), 0.7, 7));
+    this.fx.motes(x, y, '#f0b8ff', 30, r * 2, 120, 1.4);
+    this.fx.flash('#d86aff', 0.55);
+    this.fx.shake(8);
+    sfx.extra();
+    sfx.cast(4);
+    P.flash = 1;
+    P.flashColor = '#d86aff';
+    this.banner(u.name, 'SUPERMOC', '#e08aff', 36, 1.5);
+    await this.wait(0.7);
+    await u.cast(this.ctxFor(P));
+    await this.settle();
   }
 
   private shatter(x: number, y: number, t: number) {
@@ -948,6 +1000,17 @@ export class BattleScene implements Scene {
   pointer(e: PEvent) {
     if (e.type === 'down') {
       hideTip();
+      const por = this.L.P.por;
+      if (Math.hypot(e.x - por.x, e.y - por.y) < por.r * 1.2) {
+        const u = ULTS[this.run.cls];
+        if (this.phase === 'input' && this.P.caps >= BAL.capsNeeded) this.resolver?.({ k: 'ult' });
+        else
+          showTip(
+            `<strong style="color:#e08aff">Supermoc: ${esc(u.name)}</strong><p>${esc(u.desc)}</p><p>Kapsle: <b>${this.P.caps}/${BAL.capsNeeded}</b>. Zbieraj fioletowe kapsle, a gdy pierścień się zapełni, dotknij portretu.</p>`,
+            { x: por.x - por.r, y: por.y - por.r, w: por.r * 2, h: por.r * 2 }, false,
+          );
+        return;
+      }
       const sp = this.spellAt(e.x, e.y);
       if (sp) {
         this.pressed = sp;
@@ -1299,6 +1362,7 @@ export class BattleScene implements Scene {
     drawPortrait(ctx, f.look, 0, 0, r, t, { hit: f.hit, dead: f.dead, poison: f.poison.turns > 0, flash: f.flash, flashColor: f.flashColor });
     ctx.restore();
 
+    if (f.isPlayer) this.drawCaps(ctx, x, y, r, f);
     if (f.shieldVis > 0.02) {
       ctx.save();
       ctx.globalAlpha = f.shieldVis;
@@ -1363,6 +1427,45 @@ export class BattleScene implements Scene {
       const w = ctx.measureText(txt).width;
       ctx.drawImage(gemArt.spr[COIN], G.x - w - 22, G.y - 10, 20, 20);
     }
+  }
+
+  /** Ten-notch ring of bottle caps; when full the portrait itself becomes the supermove button. */
+  private drawCaps(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, f: Fighter) {
+    const need = BAL.capsNeeded;
+    const full = f.caps >= need;
+    const R = r * 1.15;
+    const gap = 0.07;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3.5, r * 0.09);
+    for (let k = 0; k < need; k++) {
+      const a0 = -Math.PI / 2 + (k * TAU) / need + gap, a1 = -Math.PI / 2 + ((k + 1) * TAU) / need - gap;
+      ctx.strokeStyle = k < f.caps ? (full ? mixHex('#d86aff', '#ffffff', 0.25 + 0.25 * Math.sin(this.t * 6)) : '#c050e8') : 'rgba(30,20,40,0.75)';
+      ctx.beginPath();
+      ctx.arc(x, y, R, a0, a1);
+      ctx.stroke();
+    }
+    if (full) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45 + 0.3 * Math.sin(this.t * 5);
+      ctx.drawImage(glow('#d86aff'), x - r * 2, y - r * 2, r * 4, r * 4);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      const label = 'SUPERMOC';
+      ctx.font = `400 ${Math.max(10, r * 0.3)}px ${DISPLAY}`;
+      const w = ctx.measureText(label).width + 12;
+      roundRect(ctx, x - w / 2, y + r * 0.95, w, r * 0.42, r * 0.2);
+      ctx.fillStyle = '#b23ad0';
+      ctx.fill();
+      ctx.strokeStyle = '#f6f3ea';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, y + r * 0.95 + r * 0.22);
+    }
+    ctx.restore();
   }
 
   private drawHp(ctx: CanvasRenderingContext2D, r: Rect, f: Fighter) {

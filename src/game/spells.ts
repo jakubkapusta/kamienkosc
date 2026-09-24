@@ -47,9 +47,9 @@ const count = (b: Board, t: number) => b.g.filter((g) => g && g.t === t).length;
 
 const list: SpellDef[] = [
   {
-    id: 'fireball', name: 'Rozpałka', elem: FIRE, cost: [7, 0, 0, 0], pool: 'b', tier: 1,
-    desc: (l) => `Zadaje ${L(l, 9, 13)} obrażeń. Brwi odrosną. Kiedyś.`,
-    cast: (c, l) => c.damage(L(l, 9, 13), 'fire'),
+    id: 'fireball', name: 'Rozpałka', elem: FIRE, cost: [6, 0, 0, 0], pool: 'b', tier: 1,
+    desc: (l) => `Zadaje ${L(l, 10, 14)} obrażeń. Brwi odrosną. Kiedyś.`,
+    cast: (c, l) => c.damage(L(l, 10, 14), 'fire'),
   },
   {
     id: 'frostbolt', name: 'Sopel z rynny', elem: WATER, cost: [0, 6, 0, 0], pool: 'b', tier: 1,
@@ -66,9 +66,12 @@ const list: SpellDef[] = [
     ai: (me) => (me.shield < 5 ? 9 : 1),
   },
   {
-    id: 'chain', name: 'Zwarcie w instalacji', elem: AIR, cost: [0, 0, 0, 8], pool: 'p', tier: 1,
-    desc: (l) => `Iskrzy w ${L(l, 6, 9)} losowych kamieniach — zbierasz ich moc. Bez uprawnień SEP.`,
-    cast: (c, l) => c.destroy(c.pick(L(l, 6, 9)), 'bolt'),
+    id: 'chain', name: 'Zwarcie w instalacji', elem: AIR, cost: [0, 0, 0, 7], pool: 'p', tier: 1,
+    desc: (l) => `Kopie wroga za ${L(l, 4, 6)} obrażeń i iskrzy w ${L(l, 6, 9)} losowych kamieniach — zbierasz ich moc. Bez uprawnień SEP.`,
+    cast: async (c, l) => {
+      await c.damage(L(l, 4, 6), 'bolt');
+      await c.destroy(c.pick(L(l, 6, 9)), 'bolt');
+    },
   },
   {
     id: 'mend', name: 'Rosołek', elem: WATER, cost: [0, 5, 4, 0], pool: 'b', tier: 1,
@@ -94,8 +97,8 @@ const list: SpellDef[] = [
   },
   {
     id: 'theft', name: 'Kopsnij manę', elem: AIR, cost: [0, 0, 0, 6], pool: 'b', tier: 1, quick: true,
-    desc: (l) => `Kradnie ${L(l, 5, 8)} many z największej puli przeciwnika. Nie kończy tury.`,
-    cast: (c, l) => c.drain(L(l, 5, 8), true),
+    desc: (l) => `Kradnie ${L(l, 6, 9)} many z największej puli przeciwnika. Nie kończy tury.`,
+    cast: (c, l) => c.drain(L(l, 6, 9), true),
     ai: (_, foe) => (Math.max(...foe.mana) >= 5 ? 8 : 0),
   },
   {

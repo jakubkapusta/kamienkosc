@@ -13,6 +13,7 @@ export class Fighter {
   skull = 2;
   pow = 1;
   vampiric = false;
+  caps = 0;
 
   // presentation
   hpShown: number;

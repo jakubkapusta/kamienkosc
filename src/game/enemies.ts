@@ -3,6 +3,7 @@ import { AIR, DARK, EARTH, ELEM_COLOR, FIRE, WATER } from '../core/types';
 import { mixHex } from '../gfx/color';
 import type { Look } from '../gfx/portrait';
 import type { SpellInst } from './fighter';
+import { BAL } from './balance';
 import { ENEMY_POOL, SPELLS } from './spells';
 
 export type Tier = 'normal' | 'elite' | 'boss';
@@ -79,8 +80,8 @@ export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
     const pool = [...ENEMY_POOL[elem], ...ENEMY_POOL[DARK]].filter((v, i, a) => a.indexOf(v) === i);
     rng.shuffle(pool);
     return {
-      name: b.name, title: b.title, elem, hp: b.hp, skull: 3, pow: 1.3,
-      spells: pool.slice(0, 3).map((id) => ({ id, lvl: 2 })), look, tier, traits: [], startMana: 4, shield: 0, skill: 0.95,
+      name: b.name, title: b.title, elem, hp: Math.round(b.hp * BAL.bossHp), skull: BAL.bossSkull, pow: BAL.bossPow,
+      spells: pool.slice(0, 3).map((id) => ({ id, lvl: 2 })), look, tier, traits: [], startMana: 4, shield: 0, skill: BAL.bossSkill,
     };
   }
   const a = rng.pick(ARCH);
@@ -95,19 +96,19 @@ export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
   const traits: string[] = [];
   if (tier === 'elite') traits.push(rng.pick(Object.keys(TRAITS)));
   else if (floor >= 3 && rng.chance(0.3)) traits.push(rng.pick(Object.keys(TRAITS)));
-  const nSpells = tier === 'elite' ? 2 : floor >= 3 ? 2 : 1;
-  const pool = ENEMY_POOL[elem].filter((id) => tier === 'elite' || floor >= 4 || SPELLS[id].tier === 1);
+  const nSpells = tier === 'elite' ? 2 : floor >= BAL.twoSpellsFrom ? 2 : 1;
+  const pool = ENEMY_POOL[elem].filter((id) => tier === 'elite' || floor >= BAL.tier2From || SPELLS[id].tier === 1);
   rng.shuffle(pool);
   const spells = pool.slice(0, nSpells).map((id) => ({ id, lvl: tier === 'elite' || floor >= 5 ? 2 : 1 }));
-  const scale = 0.9 + floor * 0.13;
-  let hp = Math.round(a.hp * scale * (tier === 'elite' ? 1.3 : 1) * rng.range(0.92, 1.08));
+  const scale = BAL.hpBase + floor * BAL.hpFloor;
+  let hp = Math.round(a.hp * scale * (tier === 'elite' ? BAL.eliteHp : 1) * rng.range(0.92, 1.08));
   if (traits.includes('ancient')) hp = Math.round(hp * 1.3);
   const tr = traits.map((t) => TRAITS[t]).join(' ');
   return {
     name: rng.pick(NAMES),
     title: `${tr ? tr + ' ' : ''}${a.title} ${rng.pick(a.places)}`,
-    elem, hp, skull: (floor <= 2 ? 1 : floor <= 5 ? 2 : 3) + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
-    pow: 0.75 + floor * 0.08 + (tier === 'elite' ? 0.15 : 0),
+    elem, hp, skull: BAL.skullAt[Math.min(7, floor)] + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
+    pow: BAL.powBase + floor * BAL.powFloor + (tier === 'elite' ? BAL.elitePow : 0),
     spells, look, tier, traits,
     startMana: traits.includes('mystic') ? 6 : 0,
     shield: traits.includes('armored') ? 10 + floor * 2 : 0,

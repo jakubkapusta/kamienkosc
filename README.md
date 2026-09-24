@@ -28,3 +28,13 @@ Workflow `.github/workflows/pages.yml` buduje grę i publikuje `dist/` przy każ
 | `src/gfx` | proceduralne sprite'y kamieni, portrety, tło, system cząsteczek |
 | `src/scenes` | menu, mapa, walka |
 | `src/flow.ts` | przebieg wyprawy i ekrany (nagrody, sklep, obozowisko, wydarzenia) |
+
+## Balans
+
+```bash
+npm run sim                 # 300 wypraw na klasę, gracz dobry (0.9) i przeciętny (0.6)
+npm run sim -- 1000 0.9     # więcej wypraw, jeden poziom gracza
+BAL='{"bossHp":0.8}' npm run sim   # szybki eksperyment bez zmiany kodu
+```
+
+Symulator (`src/sim/sim.ts`) odtwarza reguły walki bez grafiki i przechodzi całe wyprawy rozsądną SI gracza. Wszystkie pokrętła trudności są w `src/game/balance.ts`.

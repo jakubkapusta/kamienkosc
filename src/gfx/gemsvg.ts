@@ -215,5 +215,35 @@ ${sparkle(31, 28, 8)}
 </svg>`;
 }
 
+function cap() {
+  // crown cork: 21 crimped teeth, glossy violet top, white star print
+  const teeth = 21;
+  const edge = Array.from({ length: teeth * 2 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / teeth;
+    const r = i % 2 ? 40.5 : 44;
+    return `${(50 + Math.cos(a) * r).toFixed(2)},${(49 + Math.sin(a) * r).toFixed(2)}`;
+  }).join(' ');
+  const star = Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const r = i % 2 ? 7.5 : 17;
+    return `${(50 + Math.cos(a) * r).toFixed(2)},${(49 + Math.sin(a) * r).toFixed(2)}`;
+  }).join(' ');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+<defs>
+<linearGradient id="ke" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4e8ff"/><stop offset=".4" stop-color="#b8a4c8"/><stop offset="1" stop-color="#4a3a5a"/></linearGradient>
+<radialGradient id="kt" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#f4b8ff"/><stop offset=".45" stop-color="#b23ad0"/><stop offset="1" stop-color="#4a0a5e"/></radialGradient>
+<radialGradient id="ksh2" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>
+<ellipse cx="50" cy="93" rx="32" ry="6" fill="url(#ksh2)"/>
+<polygon points="${edge}" fill="url(#ke)" stroke="${OUT}" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="50" cy="49" r="35.5" fill="url(#kt)" stroke="${OUT}" stroke-width="1.6"/>
+<circle cx="50" cy="49" r="31" fill="none" stroke="#fff" stroke-width="2.4" stroke-opacity=".9"/>
+<circle cx="50" cy="49" r="27.5" fill="none" stroke="#fff" stroke-width=".8" stroke-opacity=".6" stroke-dasharray="2 2.4"/>
+<polygon points="${star}" fill="#fff" stroke="#6a1a80" stroke-width="1"/>
+<path d="M24 34 C30 24 40 19 50 18" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+${sparkle(30, 27, 8)}
+</svg>`;
+}
+
 /** SVG markup per gem type: fire, water, earth, air, skull, coin. */
-export const GEM_SVG: string[] = [ruby(), sapphire(), emerald(), topaz(), skull(), coin()];
+export const GEM_SVG: string[] = [ruby(), sapphire(), emerald(), topaz(), skull(), coin(), cap()];

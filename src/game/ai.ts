@@ -1,5 +1,6 @@
 import type { RNG } from '../core/rng';
-import { COIN, SKULL } from '../core/types';
+import { CAP, COIN, SKULL } from '../core/types';
+import { BAL } from './balance';
 import { Board, findGroups } from './board';
 import type { Fighter, SpellInst } from './fighter';
 import { affordable, SPELLS } from './spells';
@@ -26,7 +27,7 @@ export function chooseMove(b: Board, me: Fighter, foe: Fighter, rng: RNG, skill:
     const groups = findGroups(T);
     T[c] = T[a];
     T[a] = ta;
-    const counts = [0, 0, 0, 0, 0, 0];
+    const counts = [0, 0, 0, 0, 0, 0, 0];
     let maxLen = 0, cells = 0;
     for (const g of groups) {
       counts[g.t] += g.cells.length;
@@ -42,6 +43,7 @@ export function chooseMove(b: Board, me: Fighter, foe: Fighter, rng: RNG, skill:
       s += counts[k] * foeNeed[k] * 0.3 * skill;
     }
     s += counts[COIN] * 0.3;
+    s += counts[CAP] * (me.isPlayer ? (me.caps < BAL.capsNeeded ? 1.3 : 0.1) : 0.35 * skill);
     if (maxLen >= 4) s += 3 + 9 * skill;
     if (cells >= 5) s += 2;
     s += rng.next() * (1 - skill) * 9;

@@ -1,4 +1,5 @@
-export const FIRE = 0, WATER = 1, EARTH = 2, AIR = 3, SKULL = 4, COIN = 5;
+export const FIRE = 0, WATER = 1, EARTH = 2, AIR = 3, SKULL = 4, COIN = 5, CAP = 6;
+export const GEM_TYPES = 7;
 export const DARK = 4; // spell/enemy element index for necromantic stuff
 
 export const ELEM_NAME = ['ognia', 'wody', 'ziemi', 'powietrza'];

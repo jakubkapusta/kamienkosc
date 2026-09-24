@@ -97,7 +97,7 @@ function lineAt(T: ArrayLike<number>, i: number): boolean {
 
 export class Board {
   g: (Gem | null)[] = new Array(N * N).fill(null);
-  weights = [1, 1, 1, 1, 0.8, 0.65];
+  weights = [1, 1, 1, 1, 0.8, 0.65, 0.8];
   iceChance = 0;
   private nextId = 1;
 
@@ -115,7 +115,7 @@ export class Board {
     let s = 0;
     for (const w of this.weights) s += w;
     let r = this.rng.next() * s;
-    for (let t = 0; t < 6; t++) {
+    for (let t = 0; t < this.weights.length; t++) {
       r -= this.weights[t];
       if (r <= 0) return t;
     }

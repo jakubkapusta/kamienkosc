@@ -223,6 +223,10 @@ h3 { font-size: 19px; color: var(--gold); margin-top: 4px; }
 .class-card strong { display: block; font-family: var(--display); font-size: 22px; font-weight: 400; line-height: 1.05; }
 .class-card p { margin: 2px 0 0; font-size: 14px; color: #d8cce8; }
 .class-card .perk { color: #ffd76a; }
+.class-card .ult { color: #e08aff; font-weight: 700; }
+.ult-card { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(216, 106, 255, 0.5); background: linear-gradient(135deg, rgba(178, 58, 208, 0.22), rgba(12, 9, 22, 0.6) 70%); }
+.ult-card strong { font-family: var(--display); font-weight: 400; font-size: 18px; color: #f0c4ff; }
+.ult-card p { margin: 4px 0 0; font-size: 14px; color: #d8cce8; }
 .class-card .starts { color: var(--muted); font-size: 13px; }
 .hp-pill { display: block; font-size: 13px; font-weight: 700; color: #ff8a96; margin-top: 2px; }
 
