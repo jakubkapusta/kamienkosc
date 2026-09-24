@@ -24,7 +24,7 @@ export function costHTML(cost: number[], hp?: number) {
 export function spellHTML(inst: SpellInst, extra = '') {
   const d = SPELLS[inst.id];
   return `<div class="spell" style="--el:${ELEM_COLOR[d.elem]}">
-    <div class="spell-head"><span class="orb"></span><span class="spell-name">${esc(d.name)}${inst.lvl > 1 ? '<em>+</em>' : ''}</span>${d.quick ? '<span class="tag">szybki</span>' : ''}</div>
+    <div class="spell-head"><span class="spell-name">${esc(d.name)}${inst.lvl > 1 ? '<em>+</em>' : ''}</span>${d.quick ? '<span class="tag">szybki</span>' : ''}</div>
     <div class="spell-cost">${costHTML(d.cost, d.hp)}</div>
     <p>${esc(d.desc(inst.lvl))}</p>${extra}
   </div>`;
@@ -32,7 +32,7 @@ export function spellHTML(inst: SpellInst, extra = '') {
 
 export function relicHTML(id: string, extra = '') {
   const r = RELICS[id];
-  return `<div class="relic" style="--el:${ELEM_COLOR[r.elem]}"><span class="rune"></span><div><strong>${esc(r.name)}</strong><p>${esc(r.desc)}</p></div>${extra}</div>`;
+  return `<div class="relic"><div class="rc-head">Paragon fiskalny</div><div class="rc-row"><strong>${esc(r.name)}</strong><span>1 szt.</span></div><p>${esc(r.desc)}</p><div class="rc-foot">*** dziękujemy ***</div>${extra}</div>`;
 }
 
 let tipEl: HTMLElement | null = null;

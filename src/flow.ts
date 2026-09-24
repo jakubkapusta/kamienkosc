@@ -2,6 +2,7 @@ import { app } from './app';
 import { sfx } from './core/audio';
 import { hash, RNG } from './core/rng';
 import { gemArt } from './gfx/gems';
+import { artSVG, svgURL } from './gfx/art';
 import { portraitURL } from './gfx/portrait';
 import { CLASSES, MODS, RELICS } from './game/content';
 import { BAL } from './game/balance';
@@ -20,6 +21,7 @@ import { MenuScene } from './scenes/menu';
 import { el, esc, overlay, relicHTML, spellHTML, toast } from './ui/dom';
 
 const portraitOf = (cls: string) => portraitURL(CLASSES[cls].look);
+const SIGNATURES: Record<string, string> = { pyro: 'Wujek Staszek', druid: 'B. Zielińska', storm: 'Kombi' };
 
 const SHOPS: Record<string, { where: string; who: string; greet: string; potion: string; potionNote: string; upgrade: string; bye: string }> = {
   ropuszka: {
@@ -123,11 +125,22 @@ export class Game {
 
   private pickClass(): Promise<string | null> {
     const cards = Object.entries(CLASSES)
-      .map(([id, c]) => `<button class="pick class-card" data-c="${id}" style="--el:${c.look.aura}">
-          <img src="${portraitOf(id)}" alt="">
-          <div><strong>${c.name}</strong><span class="hp-pill">♥ ${c.hp} PŻ</span>
-          <p>${esc(c.desc)}</p><p class="perk">${esc(c.perk)}</p><p class="ult">Supermoc: ${esc(ULTS[id].name)}</p>
-          <p class="starts">${c.spells.map((s) => esc(SPELLS[s].name)).join(' · ')}</p></div>
+      .map(([id, c], i) => `<button class="pick class-card" data-c="${id}">
+          <div class="id-head"><span>Legitymacja bohatera</span><span>Nr ${String(i + 1).padStart(4, '0')}/87</span></div>
+          <div class="id-body">
+            <div class="id-photo"><img src="${svgURL(artSVG(c.look.art, c.look.pal, false))}" alt=""><span class="stamp">zatwier&shy;dzono</span></div>
+            <dl class="id-fields">
+              <div class="id-name"><dt>Imię i nazwisko</dt><dd>${esc(c.name)}</dd></div>
+              <div><dt>Zdrowie:</dt> <dd>${c.hp} PŻ</dd></div>
+              <div><dt>Supermoc:</dt> <dd class="id-ult">${esc(ULTS[id].name)}</dd></div>
+              <div><dt>Wyposażenie:</dt> <dd>${c.spells.map((s) => esc(SPELLS[s].name)).join(', ')}</dd></div>
+            </dl>
+            <dl class="id-fields id-wide">
+              <div><dt>Znaki szczególne:</dt> <dd>${esc(c.desc)}</dd></div>
+              <div><dt>Uprawnienia:</dt> <dd>${esc(c.perk)}</dd></div>
+            </dl>
+          </div>
+          <div class="id-sign">podpis posiadacza <span>${SIGNATURES[id] ?? c.name}</span></div>
         </button>`)
       .join('');
     return overlay<string | null>(`<h2>Kto dziś idzie?</h2><div class="choices">${cards}</div><button class="btn ghost" data-x>Wróć</button>`, (root, close) => {
@@ -451,7 +464,7 @@ export class Game {
     };
     for (;;) {
       const row = (k: string, inner: string, price: number) =>
-        `<div class="shop-row ${bought(k) ? 'sold' : ''}">${inner}<button class="btn price" data-k="${k}" ${bought(k) || run.gold < price ? 'disabled' : ''}>${bought(k) ? 'sprzedane' : `${coinImg()} ${price} zł`}</button></div>`;
+        `<div class="shop-row ${bought(k) ? 'sold' : ''}">${inner}<button class="btn price" data-k="${k}" ${bought(k) || run.gold < price ? 'disabled' : ''}>${bought(k) ? 'sprzedane' : `${price} zł`}</button></div>`;
       const html = `<div class="eyebrow">${shop.where}</div><h2>${shop.who}</h2><p class="lead">${shop.greet} Masz ${coinImg()} <b>${run.gold} zł</b>.</p>
         <div class="shop">
           ${spells.map((id) => row(`s:${id}`, spellHTML({ id, lvl: 1 }), spellPrice(SPELLS[id]))).join('')}
@@ -561,7 +574,7 @@ export class Game {
     const run = this.run!;
     overlay<void>(`<div class="eyebrow">${esc(CLASSES[run.cls].name)}</div><h2>Zeszyt i graty</h2>
       <p class="lead">${esc(CLASSES[run.cls].perk)}</p>
-      <div class="ult-card"><strong>Supermoc: ${esc(ULTS[run.cls].name)}</strong><p>${esc(ULTS[run.cls].desc)}</p><p>Ładuje się fioletowymi kapslami (${BAL.capsNeeded}). Odpalasz ją, dotykając portretu.</p></div>
+      <div class="ult-card"><span class="ult-stamp">supermoc</span><strong>${esc(ULTS[run.cls].name)}</strong><p>${esc(ULTS[run.cls].desc)}</p><p>Ładuje się fioletowymi kapslami (${BAL.capsNeeded}). Odpalasz ją, dotykając portretu.</p></div>
       <h3>Czary w zeszycie</h3><div class="choices">${run.spells.map((s) => spellHTML(s)).join('')}</div>
       <h3>Graty w kieszeniach</h3><div class="choices">${run.relics.length ? run.relics.map((r) => relicHTML(r)).join('') : '<p class="muted">Puste kieszenie. Graty znajdziesz w słoikach babci, w sklepach i u grubych ryb.</p>'}</div>
       <button class="btn primary" data-ok>Zamknij</button>`, (root, close) => {
