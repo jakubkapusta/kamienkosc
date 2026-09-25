@@ -1,5 +1,6 @@
 // Every sound is synthesized on the fly, nothing is loaded. The palette is deliberately
-// homely: toy xylophone, accordion, a Fiat 126p horn, a frying pan, a bottle cap.
+// homely: toy xylophone, a Fiat 126p horn, a frying pan, a bottle cap, kitchen noises.
+// Keep often-heard sounds short and percussive: sustained, buzzy tones get tiresome fast.
 interface ToneOpt {
   type?: OscillatorType;
   vol?: number;
@@ -148,14 +149,15 @@ class Sfx {
     this.tone(f * 5.4, 0.1, { when, vol: vol * 0.15 });
   }
 
-  /** Accordion reed: detuned saws through a warm filter, with musette wobble. */
-  private reed(f: number, dur: number, when = 0, vol = 0.05) {
-    for (const d of [-7, 7]) this.tone(f, dur, { type: 'sawtooth', when, vol, detune: d, attack: 0.06, hold: 0.6, vib: 5.5, vibDepth: f * 0.006, lp: 1600 });
-    this.tone(f / 2, dur, { type: 'square', when, vol: vol * 0.5, attack: 0.06, hold: 0.6, lp: 900 });
+  /** Bell / pot lid: sine partials with bell-like (inharmonic) ratios, long soft decay. */
+  private bell(f: number, dur: number, when = 0, vol = 0.08) {
+    [[1, 1], [2.4, 0.5], [2.98, 0.3], [5.95, 0.15]].forEach(([r, v], i) => this.tone(f * r, dur / (1 + i * 0.6), { when, vol: vol * v }));
   }
 
-  private chord(root: number, minor: boolean, dur: number, when = 0, vol = 0.045) {
-    for (const n of [0, minor ? 3 : 4, 7]) this.reed(midi(root + n), dur, when, vol);
+  /** Wooden spoon on a chopping board. */
+  private knock(when = 0, vol = 0.12, f = 620) {
+    this.tone(f, 0.07, { type: 'triangle', when, vol, slide: -120, wet: false });
+    this.noise(0.03, { freq: f * 2, q: 3, vol: vol * 0.8, when, wet: false });
   }
 
   // ---------- game events ----------
@@ -221,11 +223,30 @@ class Sfx {
     this.bar(midi([84, 88, 79, 91][c] ?? 84), 0, 0.035);
   }
 
-  /** Spell cast: an accordion chord, a different one per element. */
+  /** Spell cast: a short household sound per element. */
   cast(elem: number) {
     if (!this.ok('cast', 0.1)) return;
-    const [root, minor] = ([[60, false], [57, true], [53, false], [67, false], [62, true]] as const)[elem] ?? [60, false];
-    this.chord(root, minor, 0.6);
+    switch (elem) {
+      case 0: // fire: striking a match, then the flame catching
+        this.noise(0.07, { freq: 2600, q: 0.8, vol: 0.22, wet: false });
+        this.noise(0.35, { freq: 500, slideTo: 2200, q: 0.9, vol: 0.12, when: 0.06 });
+        break;
+      case 1: // water: two drops into a bucket
+        this.tone(380, 0.12, { vol: 0.14, slide: 900 });
+        this.tone(520, 0.1, { vol: 0.1, slide: 1000, when: 0.13 });
+        break;
+      case 2: // earth: wooden spoon, tok-tok, and a thud
+        this.knock(0, 0.12, 620);
+        this.knock(0.1, 0.1, 540);
+        this.tone(90, 0.18, { vol: 0.14, slide: -30, when: 0.1 });
+        break;
+      case 3: // air: a short whistle
+        this.tone(2300, 0.22, { vol: 0.045, vib: 28, vibDepth: 90, attack: 0.02, hold: 0.5 });
+        this.noise(0.2, { freq: 2300, q: 2, vol: 0.05 });
+        break;
+      default: // dark: the parish bell, far away
+        this.bell(midi(45), 1.1, 0, 0.07);
+    }
   }
 
   /** Fire spells: the grill sizzling. */
@@ -270,11 +291,12 @@ class Sfx {
     [84, 88, 91].forEach((n, i) => this.bar(midi(n), i * 0.045, 0.06));
   }
 
-  /** Supermove: full accordion chord, a glissando and a cymbal. */
+  /** Supermove: a xylophone glissando, a pot-lid gong and a cymbal. */
   ult() {
     if (!this.ok('ult', 0.5)) return;
     [60, 64, 67, 72, 76, 79, 84].forEach((n, i) => this.bar(midi(n), i * 0.035, 0.07));
-    this.chord(60, false, 1.1, 0.25, 0.06);
+    this.bell(midi(43), 1.4, 0.25, 0.12);
+    this.tone(midi(31), 0.5, { vol: 0.16, when: 0.25, slide: -10 });
     this.noise(1.2, { freq: 6000, type: 'highpass', vol: 0.12, when: 0.25 });
   }
 
@@ -289,7 +311,7 @@ class Sfx {
     }
     for (let k = 0; k < 6; k++) {
       this.tone(midi(k % 2 ? 48 : 43) + 0, 0.18, { type: 'triangle', vol: 0.12, when: k * 0.4 });
-      this.chord(k % 2 ? 60 : 55, false, 0.15, k * 0.4 + 0.2, 0.02);
+      this.bar(midi(k % 2 ? 72 : 67), k * 0.4 + 0.2, 0.03);
     }
   }
 
