@@ -28,11 +28,13 @@ export function chooseMove(b: Board, me: Fighter, foe: Fighter, rng: RNG, skill:
     T[c] = T[a];
     T[a] = ta;
     const counts = [0, 0, 0, 0, 0, 0, 0];
-    let maxLen = 0, cells = 0;
+    let maxLen = 0, cells = 0, fuses = 0;
     for (const g of groups) {
       counts[g.t] += g.cells.length;
       cells += g.cells.length;
       maxLen = Math.max(maxLen, g.maxLen);
+      // the gem now at `cell` came from the other end of the swap
+      for (const cell of g.cells) if (b.g[cell === a ? c : cell === c ? a : cell]?.fuse) fuses++;
     }
     const dmg = counts[SKULL] * (me.skull + me.str.amt);
     let s = dmg * 1.7;
@@ -42,7 +44,9 @@ export function chooseMove(b: Board, me: Fighter, foe: Fighter, rng: RNG, skill:
       s += counts[k] * (need[k] ? 1.5 : full ? 0.1 : 0.5);
       s += counts[k] * foeNeed[k] * 0.3 * skill;
     }
-    s += counts[COIN] * (0.3 + me.coinHit * 1.7);
+    s += counts[COIN] * (0.3 + me.coinHit * 1.7 + me.coinSteal * 1.2);
+    // defuse petardy (the enemy would rather let them burn)
+    s += fuses * (me.isPlayer ? 4 + 6 * skill : -3);
     s += counts[CAP] * (me.isPlayer ? (me.caps < me.capsNeeded ? 1.3 * (BAL.capsNeeded / me.capsNeeded) : 0.1) : 0.35 * skill);
     if (maxLen >= 4) s += 3 + 9 * skill + (me.expMana ? 4 : 0);
     if (me.rush > 0 && counts[SKULL]) s += 3 + 9 * skill;

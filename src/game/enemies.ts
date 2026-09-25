@@ -4,6 +4,7 @@ import { mixHex } from '../gfx/color';
 import type { Look } from '../gfx/portrait';
 import type { SpellInst } from './fighter';
 import { BAL, skullFor } from './balance';
+import { fuseDamage } from './habits';
 import { diffOf, type MapNode } from './map';
 import { rngFor, type Run } from './run';
 import { ENEMY_POOL, SPELLS } from './spells';
@@ -24,6 +25,14 @@ export interface EnemySpec {
   startMana: number;
   shield: number;
   skill: number;
+  /** signature mechanic, key into HABITS */
+  habit?: string;
+  /** damage of this enemy's petardy (habit 'fuse' or trait 'explosive') */
+  fuseDmg: number;
+  /** difficulty it was generated at (habits scale with it) */
+  floor: number;
+  /** trait adjectives agreeing with the title's gender, same order as traits */
+  traitNames?: string[];
 }
 
 interface Arch {
@@ -35,25 +44,32 @@ interface Arch {
   elems: number[];
   places: string[];
   hair?: string;
+  habit: string;
+  /** grammatical gender of the title: masculine by default */
+  g?: 'f' | 'n';
 }
 
 const ARCH: Arch[] = [
-  { title: 'Diablik', art: 'imp', hp: 28, skins: ['#d8483a', '#c23a52', '#e05a2a'], tint: 0.1, elems: [FIRE, DARK], places: ['z Działki', 'z Ogródka Jordanowskiego', 'spod Grilla'] },
-  { title: 'Utopiec', art: 'drowner', hp: 34, skins: ['#5aa08a', '#4a8a9a', '#6aa06a'], tint: 0.15, elems: [WATER, EARTH], places: ['z Zalewu', 'z Glinianek', 'spod Mostu'] },
-  { title: 'Szkielet', art: 'skeleton', hp: 32, skins: ['#e8dcc0'], tint: 0, elems: [DARK, WATER], places: ['z Szafy', 'z Piwnicy', 'z Pawlacza'] },
-  { title: 'Upiór', art: 'ghost', hp: 30, skins: ['#cfe3ea', '#d8d0ea'], tint: 0.08, elems: [WATER, DARK, AIR], places: ['z Bloku', 'z Klatki Schodowej', 'spod Trójki'] },
-  { title: 'Akwizytor', art: 'salesman', hp: 36, skins: ['#9ab09a', '#a8a0b8'], tint: 0.1, elems: [DARK, FIRE, AIR], places: ['z Zaświatów', 'od Garnków', 'od Polis na Życie'] },
-  { title: 'Golem', art: 'golem', hp: 50, skins: ['#a8a296', '#9aa0a8', '#b0a490'], tint: 0.08, elems: [EARTH, AIR, WATER], places: ['z Wielkiej Płyty', 'z Osiedla', 'z Pustaków'] },
-  { title: 'Smok', art: 'dragon', hp: 42, skins: ['#4a9a5a', '#9a4a3a', '#3a7a9a'], tint: 0.2, elems: [FIRE, WATER, EARTH], places: ['z Wawelu (nie tego)', 'spod Wisły', 'z Zoo'] },
-  { title: 'Troll', art: 'troll', hp: 44, skins: ['#8a9a7a', '#9a8a7a'], tint: 0.1, elems: [AIR, EARTH, DARK], places: ['z Komentarzy', 'z Forum', 'spod Posta'], hair: '#3a3a2a' },
-  { title: 'Chochlik', art: 'goblin', hp: 30, skins: ['#7aaa4a', '#8aa84a'], tint: 0.12, elems: [AIR, EARTH, DARK], places: ['z Urzędu', 'z Okienka Nr 3', 'z Kadr'] },
+  { title: 'Diablik', art: 'imp', hp: 28, habit: 'fuse', skins: ['#d8483a', '#c23a52', '#e05a2a'], tint: 0.1, elems: [FIRE, DARK], places: ['z Działki', 'z Ogródka Jordanowskiego', 'spod Grilla'] },
+  { title: 'Utopiec', art: 'drowner', hp: 30, habit: 'flood', skins: ['#5aa08a', '#4a8a9a', '#6aa06a'], tint: 0.15, elems: [WATER, EARTH], places: ['z Zalewu', 'z Glinianek', 'spod Mostu'] },
+  { title: 'Szkielet', art: 'skeleton', hp: 32, habit: 'rise', skins: ['#e8dcc0'], tint: 0, elems: [DARK, WATER], places: ['z Szafy', 'z Piwnicy', 'z Pawlacza'] },
+  { title: 'Upiór', art: 'ghost', hp: 30, habit: 'chill', skins: ['#cfe3ea', '#d8d0ea'], tint: 0.08, elems: [WATER, DARK, AIR], places: ['z Bloku', 'z Klatki Schodowej', 'spod Trójki'] },
+  { title: 'Akwizytor', art: 'salesman', hp: 36, habit: 'installments', skins: ['#9ab09a', '#a8a0b8'], tint: 0.1, elems: [DARK, FIRE, AIR], places: ['z Zaświatów', 'od Garnków', 'od Polis na Życie'] },
+  { title: 'Golem', art: 'golem', hp: 42, habit: 'stone', skins: ['#a8a296', '#9aa0a8', '#b0a490'], tint: 0.08, elems: [EARTH, AIR, WATER], places: ['z Wielkiej Płyty', 'z Osiedla', 'z Pustaków'] },
+  { title: 'Smok', art: 'dragon', hp: 38, habit: 'breath', skins: ['#4a9a5a', '#9a4a3a', '#3a7a9a'], tint: 0.2, elems: [FIRE, WATER, EARTH], places: ['z Wawelu (nie tego)', 'spod Wisły', 'z Zoo'] },
+  { title: 'Troll', art: 'troll', hp: 36, habit: 'regen', skins: ['#8a9a7a', '#9a8a7a'], tint: 0.1, elems: [AIR, EARTH, DARK], places: ['z Komentarzy', 'z Forum', 'spod Posta'], hair: '#3a3a2a' },
+  { title: 'Chochlik', art: 'goblin', hp: 30, habit: 'fingers', skins: ['#7aaa4a', '#8aa84a'], tint: 0.12, elems: [AIR, EARTH, DARK], places: ['z Urzędu', 'z Okienka Nr 3', 'z Kadr'] },
+  { title: 'Kanar', art: 'kanar', hp: 36, habit: 'fine', skins: ['#e8b494', '#d8a888'], tint: 0.06, elems: [AIR, DARK], places: ['z Linii 175', 'z Nocnego', 'z Tramwaju nr 8'], hair: '#2a1a12' },
+  { title: 'Południca', art: 'poludnica', hp: 34, habit: 'harvest', g: 'f', skins: ['#f2e8dc', '#e8e4f0'], tint: 0.06, elems: [EARTH, FIRE], places: ['z Pola', 'z Rżyska', 'spod Stogu'], hair: '#e8c86a' },
+  { title: 'Licho', art: 'licho', hp: 26, habit: 'restless', g: 'n', skins: ['#7a6a8a', '#6a7a5a'], tint: 0.15, elems: [DARK, AIR], places: ['spod Łóżka', 'zza Pieca', 'z Szuflady'], hair: '#3a2a3a' },
+  { title: 'Dzik', art: 'dzik', hp: 34, habit: 'charge', skins: ['#8a6a52', '#7a6a5a'], tint: 0.1, elems: [EARTH, FIRE], places: ['z Osiedla', 'spod Śmietnika', 'z Lasku Miejskiego'], hair: '#3a2a1e' },
 ];
 
-const BOSSES: { name: string; title: string; art: string; hp: number; skin: string; acc: string; elems: number[]; crown?: boolean }[] = [
-  { name: 'Pani Halinka', title: 'Kierowniczka Okienka', art: 'clerk', hp: 100, skin: '#f0c4a8', acc: '#b83a6a', elems: [DARK] },
-  { name: 'Smok Wawelski', title: 'Emerytowany Postrach Krakowa', art: 'dragon', hp: 110, skin: '#4a9a5a', acc: '#2a6a3a', elems: [FIRE], crown: true },
-  { name: 'Teściowa', title: 'Władczyni Niedzielnego Obiadu', art: 'tesciowa', hp: 105, skin: '#e8b4a0', acc: '#c8322a', elems: [DARK, FIRE] },
-  { name: 'Golem Kultury', title: 'Dar Bratniego Narodu', art: 'palace', hp: 122, skin: '#b8b0a2', acc: '#e8b53e', elems: [EARTH, AIR] },
+const BOSSES: { name: string; title: string; art: string; hp: number; skin: string; acc: string; elems: number[]; crown?: boolean; habit: string }[] = [
+  { name: 'Pani Halinka', title: 'Kierowniczka Okienka', art: 'clerk', hp: 100, habit: 'stamp', skin: '#f0c4a8', acc: '#b83a6a', elems: [DARK] },
+  { name: 'Smok Wawelski', title: 'Emerytowany Postrach Krakowa', art: 'dragon', hp: 110, habit: 'breath', skin: '#4a9a5a', acc: '#2a6a3a', elems: [FIRE], crown: true },
+  { name: 'Teściowa', title: 'Władczyni Niedzielnego Obiadu', art: 'tesciowa', hp: 105, habit: 'fingers', skin: '#e8b4a0', acc: '#c8322a', elems: [DARK, FIRE] },
+  { name: 'Golem Kultury', title: 'Dar Bratniego Narodu', art: 'palace', hp: 122, habit: 'stone', skin: '#b8b0a2', acc: '#e8b53e', elems: [EARTH, AIR] },
 ];
 
 const TRAITS: Record<string, string> = {
@@ -62,6 +78,8 @@ const TRAITS: Record<string, string> = {
   ancient: 'Przedwojenny',
   vampiric: 'Krwiopijczy',
   mystic: 'Nawiedzony',
+  explosive: 'Wybuchowy',
+  icy: 'Zmarznięty',
 };
 export const TRAIT_DESC: Record<string, string> = {
   armored: 'zaczyna z tarczą',
@@ -69,8 +87,15 @@ export const TRAIT_DESC: Record<string, string> = {
   ancient: 'więcej zdrowia',
   vampiric: 'leczy się czaszkami',
   mystic: 'zaczyna z maną',
+  explosive: 'zaczyna z dwiema petardami na planszy',
+  icy: 'zaczyna z zamarzniętą planszą',
 };
 
+/** Masculine adjective → the title's gender (Skacowany Diablik, Skacowana Południca, Skacowane Licho). */
+const agree = (adj: string, g?: 'f' | 'n') => (g ? adj.replace(/y$/, g === 'f' ? 'a' : 'e') : adj);
+
+const NAMES_F = ['Grażyna', 'Jadwiga', 'Halina', 'Krystyna', 'Danuta', 'Wiesława', 'Zdzisława', 'Gienia'];
+const NAMES_N = ['Toto', 'Ono', 'Coś', 'Tamto', 'Cosik'];
 const NAMES = ['Mietek', 'Zdzichu', 'Heniek', 'Rysiek', 'Waldek', 'Józek', 'Staszek', 'Kaziu', 'Zbyszek', 'Janusz', 'Bogdan', 'Czesiek', 'Edek', 'Leszek', 'Tadek', 'Wiesiek', 'Grzesiek', 'Marian'];
 
 /**
@@ -90,6 +115,7 @@ export function genEnemy(seed: number, floor: number, tier: Tier, boss?: number)
     return {
       name: b.name, title: b.title, elem, hp: Math.round(b.hp * BAL.bossHp * grow), skull: Math.max(1.5, BAL.bossSkull + (floor - 7) * BAL.skullGrow), pow: BAL.bossPow * grow,
       spells: pool.slice(0, 3).map((id) => ({ id, lvl: 2 })), look, tier, traits: [], startMana: 4, shield: 0, skill: BAL.bossSkill,
+      habit: b.habit, fuseDmg: fuseDamage(floor), floor,
     };
   }
   const a = rng.pick(ARCH);
@@ -111,9 +137,10 @@ export function genEnemy(seed: number, floor: number, tier: Tier, boss?: number)
   const scale = BAL.hpBase + floor * BAL.hpFloor;
   let hp = Math.round(a.hp * scale * (tier === 'elite' ? BAL.eliteHp : 1) * rng.range(0.92, 1.08));
   if (traits.includes('ancient')) hp = Math.round(hp * 1.3);
-  const tr = traits.map((t) => TRAITS[t]).join(' ');
+  const traitNames = traits.map((t) => agree(TRAITS[t], a.g));
+  const tr = traitNames.join(' ');
   return {
-    name: rng.pick(NAMES),
+    name: rng.pick(a.g === 'f' ? NAMES_F : a.g === 'n' ? NAMES_N : NAMES),
     title: `${tr ? tr + ' ' : ''}${a.title} ${rng.pick(a.places)}`,
     elem, hp, skull: skullFor(floor) + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
     pow: BAL.powBase + floor * BAL.powFloor + (tier === 'elite' ? BAL.elitePow : 0),
@@ -121,6 +148,10 @@ export function genEnemy(seed: number, floor: number, tier: Tier, boss?: number)
     startMana: traits.includes('mystic') ? 6 : 0,
     shield: traits.includes('armored') ? 10 + floor * 2 : 0,
     skill: Math.min(0.9, 0.35 + floor * 0.08 + (tier === 'elite' ? 0.2 : 0)),
+    habit: a.habit,
+    fuseDmg: fuseDamage(floor),
+    floor,
+    traitNames,
   };
 }
 

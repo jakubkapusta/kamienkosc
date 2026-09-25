@@ -16,6 +16,7 @@ import { isFinalBoss, type MapNode, type RunLen } from '../game/map';
 import { addRelic, has, newRun, randomRelics, rngFor, type Run } from '../game/run';
 import { affordable, costOf, PLAYER_SPELLS, SPELLS, spellPrice, type SpellCtx } from '../game/spells';
 import { ULTS } from '../game/ult';
+import { habitFires, habitSetup, openingTraits } from '../game/habits';
 
 export interface BattleOut { won: boolean; hp: number; turns: number; gold: number; ults: number }
 
@@ -29,6 +30,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   E.skull = spec.skull;
   E.pow = spec.pow;
   E.vampiric = spec.traits.includes('vampiric');
+  habitSetup(E, spec);
   P.skull = BAL.playerSkull;
   if (has(run, 'skullring')) P.skull += 1;
   heroSetup(P, run.cls);
@@ -55,6 +57,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   E.shield = spec.shield;
   if (mods.includes('ice')) for (const i of rng.shuffle([...Array(64).keys()]).slice(0, 7)) board.g[i]!.ice = true;
   if (mods.includes('cataclysm')) for (const i of rng.shuffle([...Array(64).keys()]).slice(0, 4)) board.g[i]!.sp = BOMB;
+  openingTraits(board, spec, rng);
 
   let over = 0;
   let turnNo = 0, pTurns = 0;
@@ -65,12 +68,19 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   const hurt = (f: Fighter, amount: number) => {
     amount = Math.round(amount);
     if (amount <= 0 || over) return 0;
+    if (f.armor) amount = Math.max(1, amount - f.armor);
     const ab = Math.min(f.shield, amount);
     f.shield -= ab;
     const d = amount - ab;
     f.hp = Math.max(0, f.hp - d);
     if (f.hp <= 0) over = f === E ? 1 : 2;
     return d;
+  };
+  const rob = (from: Fighter, n: number) => {
+    const v = Math.max(0, Math.min(n, from.purse));
+    from.purse -= v;
+    if (from === P) gold -= v;
+    return v;
   };
   const heal = (f: Fighter, n: number) => {
     const v = Math.min(Math.round(n), f.maxHp - f.hp);
@@ -95,6 +105,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       if (!isP && actor.vampiric && dealt) heal(actor, Math.ceil(dealt / 2));
       if (!isP && dealt && has(run, 'thorns')) hurt(actor, 2);
     }
+    if (counts[COIN] && !isP && actor.coinSteal) rob(foe, counts[COIN] * actor.coinSteal);
     if (counts[COIN] && isP) {
       const g = counts[COIN] * (has(run, 'goldtooth') ? 2 : 1);
       gold += g;
@@ -170,6 +181,9 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       shield: async (n) => void (me.shield += Math.round(n * pow)),
       caps: async (n) => void (me.isPlayer && (me.caps = Math.min(me.capsNeeded, me.caps + n))),
       announce: async () => {},
+      fuse: async (list, t) => void list.forEach((i) => board.g[i] && (board.g[i]!.fuse = t)),
+      freeze: async (list) => void list.forEach((i) => board.g[i] && (board.g[i]!.ice = true)),
+      rob: async (n) => rob(foe, n),
       unshield: async () => void (foe.shield = 0),
       poison: async (d, t) => void (foe.poison = { dmg: Math.max(foe.poison.dmg, Math.round(d * pow)), turns: foe.poison.turns + t }),
       stun: async (t) => void (foe.stun += t),
@@ -266,10 +280,32 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       if (!f.poison.turns) f.poison.dmg = 0;
       if (over) break;
     }
+    if (f === E) {
+      // petardy burn down on the enemy's turns
+      const boom: number[] = [];
+      board.g.forEach((g, i) => {
+        if (g && g.fuse > 0 && --g.fuse === 0) boom.push(i);
+      });
+      if (boom.length) {
+        for (const i of boom) board.g[i] = null;
+        hurt(P, E.fuseDmg * boom.length);
+        board.fall();
+        resolve(E);
+        if (over) break;
+      }
+    }
     if (f.stun > 0) f.stun--;
     else {
       if (f === P) pTurns++;
+      if (f === E && E.habit) {
+        E.habitTurn++;
+        if (habitFires(E) && E.habit.act) {
+          await E.habit.act(ctxFor(E), spec.floor);
+          if (over) break;
+        }
+      }
       extra = await act(f, f === P ? skill : spec.skill);
+      if (f === E && E.habit?.extra && habitFires(E) && !over) extra = true;
     }
     if (f.str.turns > 0 && --f.str.turns === 0) f.str.amt = 0;
     if (f.rush > 0) f.rush--;
@@ -292,7 +328,7 @@ export interface RunOut {
   won: boolean;
   deathRow: number;
   deathTier: Tier | 'event' | null;
-  battles: { row: number; tier: Tier; turns: number; hpLoss: number; won: boolean; ults: number }[];
+  battles: { row: number; tier: Tier; turns: number; hpLoss: number; won: boolean; ults: number; habit: string }[];
   bossHp: number | null;
   relics: number;
 }
@@ -331,7 +367,7 @@ export async function simRun(cls: string, seed: number, skill: number, len: RunL
     if (final) out.bossHp = run.hp / run.maxHp;
     const before = run.hp;
     const r = await simBattle(run, enemy, mods, hash(run.seed, 'battle', n.id), skill);
-    out.battles.push({ row: n.row, tier, turns: r.turns, hpLoss: (before - r.hp) / run.maxHp, won: r.won, ults: r.ults });
+    out.battles.push({ row: n.row, tier, turns: r.turns, hpLoss: (before - r.hp) / run.maxHp, won: r.won, ults: r.ults, habit: enemy.habit ?? '' });
     if (!r.won) {
       out.deathRow = n.row;
       out.deathTier = tier;

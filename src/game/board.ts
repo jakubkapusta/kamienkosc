@@ -10,6 +10,8 @@ export interface Gem {
   t: number;
   sp: number;
   ice: boolean;
+  /** lit fuse (Diablik's petarda): enemy turns left before it goes off; 0 = none */
+  fuse: number;
   // visual state (cell units)
   px: number;
   py: number;
@@ -105,7 +107,7 @@ export class Board {
 
   mk(t: number, i: number): Gem {
     return {
-      id: this.nextId++, t, sp: NONE, ice: false,
+      id: this.nextId++, t, sp: NONE, ice: false, fuse: 0,
       px: i % N, py: (i / N) | 0, vy: 0, tw: null,
       flash: 0, flashing: false, land: 0, birth: 0, flip: 0, flipTo: 0, delay: 0,
     };
@@ -284,7 +286,7 @@ export class Board {
   }
 
   dump(): number[] {
-    return this.g.map((g) => (g ? g.t | (g.sp << 3) | ((g.ice ? 1 : 0) << 5) : 0));
+    return this.g.map((g) => (g ? g.t | (g.sp << 3) | ((g.ice ? 1 : 0) << 5) | (Math.min(7, g.fuse) << 6) : 0));
   }
 
   load(arr: number[]) {
@@ -292,6 +294,7 @@ export class Board {
       const g = this.mk(v & 7, i);
       g.sp = (v >> 3) & 3;
       g.ice = !!((v >> 5) & 1);
+      g.fuse = (v >> 6) & 7;
       this.g[i] = g;
     });
   }

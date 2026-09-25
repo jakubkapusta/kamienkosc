@@ -16,6 +16,7 @@ import { Fighter, type SpellInst } from '../game/fighter';
 import { has, type BattleSave, type Run } from '../game/run';
 import { affordable, costOf, SPELLS, type FxKind, type SpellCtx } from '../game/spells';
 import { ULTS } from '../game/ult';
+import { habitFires, habitSetup, openingTraits } from '../game/habits';
 import { costHTML, esc, hideTip, showTip } from '../ui/dom';
 
 type Action = { k: 'swap'; a: number; b: number } | { k: 'spell'; i: number } | { k: 'ult' };
@@ -88,6 +89,7 @@ export class BattleScene implements Scene {
     this.E.skull = spec.skull;
     this.E.pow = spec.pow;
     this.E.vampiric = spec.traits.includes('vampiric');
+    habitSetup(this.E, spec);
     this.P.skull = BAL.playerSkull;
     if (has(run, 'skullring')) this.P.skull += 1;
     heroSetup(this.P, run.cls);
@@ -127,6 +129,8 @@ export class BattleScene implements Scene {
       this.P.caps = sv.caps ?? 0;
       this.P.bribes = sv.bribes ?? 0;
       this.P.rush = sv.rush ?? 0;
+      this.E.habitTurn = sv.habit?.[0] ?? 0;
+      if (sv.habit?.[1]) this.E.memo.rose = 1;
     } else {
       this.board.fillFresh();
       const P = this.P, E = this.E;
@@ -140,6 +144,7 @@ export class BattleScene implements Scene {
       E.shield = spec.shield;
       if (mods.includes('ice')) for (const i of this.rng.shuffle([...Array(64).keys()]).slice(0, 7)) this.board.g[i]!.ice = true;
       if (mods.includes('cataclysm')) for (const i of this.rng.shuffle([...Array(64).keys()]).slice(0, 4)) this.board.g[i]!.sp = BOMB;
+      openingTraits(this.board, spec, this.rng);
       // gems rain in from above
       for (const g of this.board.g) if (g) g.py -= 9 + g.px * 0.35 + Math.random() * 0.4;
     }
@@ -296,7 +301,8 @@ export class BattleScene implements Scene {
       await this.wait(0.15);
       const tier = spec.tier === 'boss' ? 'SZEF' : spec.tier === 'elite' ? 'GRUBA RYBA' : '';
       const traits = spec.traits.map((t) => TRAIT_DESC[t]).join(', ');
-      this.banner(spec.name, `${tier ? tier + ' · ' : ''}${spec.title}${traits ? ` — ${traits}` : ''}`, ELEM_COLOR[spec.elem], 38, 2.1);
+      const habit = this.E.habit ? ` · ${this.E.habit.name}` : '';
+      this.banner(spec.name, `${tier ? tier + ' · ' : ''}${spec.title}${traits ? ` — ${traits}` : ''}${habit}`, ELEM_COLOR[spec.elem], 38, 2.1);
       sfx.cast(spec.elem);
       await this.settle();
       await this.wait(0.4);
@@ -317,6 +323,7 @@ export class BattleScene implements Scene {
     this.setup.onSave({
       turn: this.cur === this.P ? 0 : 1, board: this.board.dump(), f: [f(this.P), f(this.E)],
       rng: this.rng.s, turnNo: this.turnNo, gold: this.gold, freeSpell: this.freeSpell, caps: this.P.caps, bribes: this.P.bribes, rush: this.P.rush,
+      habit: [this.E.habitTurn, this.E.memo.rose ?? 0],
     });
   }
 
@@ -343,6 +350,10 @@ export class BattleScene implements Scene {
       await this.wait(0.55);
       if (this.over) return false;
     }
+    if (f === this.E) {
+      await this.burnFuses();
+      if (this.over) return false;
+    }
     if (f.stun > 0) {
       f.stun--;
       this.banner(f === this.P ? 'Zamroczyło cię' : 'Wroga zamroczyło', 'tura przepada', '#ffe27a', 26, 1.2);
@@ -350,7 +361,20 @@ export class BattleScene implements Scene {
       this.tickStr(f);
       return false;
     }
-    const extra = f === this.P ? await this.playerTurn() : await this.enemyTurn();
+    if (f === this.E && f.habit) {
+      f.habitTurn++;
+      if (habitFires(f) || f.habit.every === 1) {
+        if (f.habit.loud) {
+          this.banner(f.habit.name, f.habit.desc(this.setup.enemy.floor), f.habit.color, 28, 1.8);
+          await this.wait(0.9);
+        }
+        if (f.habit.act) await f.habit.act(this.ctxFor(f), this.setup.enemy.floor);
+        await this.settle();
+        if (this.over) return false;
+      }
+    }
+    let extra = f === this.P ? await this.playerTurn() : await this.enemyTurn();
+    if (f === this.E && f.habit?.extra && habitFires(f) && !this.over && !extra) extra = true;
     this.tickStr(f);
     return extra;
   }
@@ -591,6 +615,7 @@ export class BattleScene implements Scene {
       } else {
         const [tx, ty] = this.porXY(actor);
         for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, tx, ty, '#e4ecff', 0.5, null, cellSz * 0.18);
+        if (actor.coinSteal) this.robGold(foe, actor, counts[COIN] * actor.coinSteal);
       }
     }
     if (counts[CAP]) {
@@ -697,6 +722,31 @@ export class BattleScene implements Scene {
     await this.until(() => b.settled());
   }
 
+  /** Every enemy turn the lit fuses burn down; a petarda that reaches zero hurts the player. */
+  private async burnFuses() {
+    const b = this.board;
+    const boom: number[] = [];
+    b.g.forEach((g, i) => {
+      if (g && g.fuse > 0 && --g.fuse === 0) boom.push(i);
+    });
+    if (!boom.length) return;
+    for (const i of boom) {
+      const [x, y] = this.cellXY(i);
+      this.fx.ring(x, y, '#ffb04a', this.L.cell * 0.2, this.L.cell * 2.2, 0.5, 6);
+      this.fx.sparks(x, y, '#ffd86a', 24, this.L.cell * 9, 0.6);
+      this.fx.glow(x, y, '#ff5a2a', this.L.cell, 0.5, this.L.cell * 2.6);
+      b.g[i] = null;
+    }
+    sfx.explode();
+    this.fx.shake(10);
+    this.banner('BUM!', 'petarda wybuchła', '#ff7a3a', 36, 1);
+    this.hurt(this.P, this.E.fuseDmg * boom.length, 0.2, '#ffb04a');
+    await this.wait(0.4);
+    b.fall();
+    await this.until(() => b.settled());
+    await this.resolve(this.E);
+  }
+
   private async stormStrike(f: Fighter) {
     const cells = this.rng.shuffle(this.board.g.map((_, i) => i)).slice(0, 3);
     for (const i of cells) {
@@ -711,10 +761,25 @@ export class BattleScene implements Scene {
   }
 
   // ---------- combat ----------
+  /** Moves złoty from `from`'s purse (the player's run money) to `to`; returns the amount. */
+  private robGold(from: Fighter, to: Fighter, n: number): number {
+    const v = Math.max(0, Math.min(n, from.purse));
+    if (!v) return 0;
+    from.purse -= v;
+    if (from === this.P) this.gold -= v;
+    const G = this.L.gold;
+    const [tx, ty] = this.porXY(to);
+    for (let k = 0; k < Math.min(v, 8); k++) this.fx.orb(G.x - 30, G.y, tx, ty, '#e4ecff', 0.5 + k * 0.05, null, this.L.cell * 0.18);
+    this.fx.text(G.x - 30, G.y + 18, `-${v} zł`, '#ffb0b0', 16, 0.9, 30);
+    sfx.coin();
+    return v;
+  }
+
   /** Applies damage immediately; the visual hit lands after `delay`. */
   private hurt(f: Fighter, amount: number, delay = 0, color = '#ff5a5a'): number {
     amount = Math.round(amount);
     if (amount <= 0 || this.over) return 0;
+    if (f.armor) amount = Math.max(1, amount - f.armor);
     const absorbed = Math.min(f.shield, amount);
     f.shield -= absorbed;
     const dmg = amount - absorbed;
@@ -873,6 +938,36 @@ export class BattleScene implements Scene {
         sfx.cap();
         if (before < me.capsNeeded && me.caps >= me.capsNeeded) this.fx.after(0.5, () => this.banner('Supermoc gotowa!', 'dotknij portretu', '#d86aff', 26, 1.3));
         await this.wait(0.4);
+      },
+      fuse: async (list, turns) => {
+        for (const i of list) {
+          const g = b.g[i];
+          if (!g) continue;
+          g.fuse = turns;
+          g.flash = 1;
+          const [x, y] = this.cellXY(i);
+          this.fx.sparks(x, y, '#ffd86a', 14, this.L.cell * 5, 0.5);
+          this.fx.ring(x, y, '#ff7a3a', 4, this.L.cell, 0.5, 4);
+        }
+        sfx.fire();
+        await this.wait(0.45);
+      },
+      freeze: async (list) => {
+        for (const i of list) {
+          const g = b.g[i];
+          if (!g) continue;
+          g.ice = true;
+          const [x, y] = this.cellXY(i);
+          this.fx.shards(x, y, '#cfefff', 8, this.L.cell * 4, this.L.cell * 0.1);
+          this.fx.ring(x, y, '#e6f7ff', 4, this.L.cell, 0.45, 4);
+        }
+        sfx.shield();
+        await this.wait(0.45);
+      },
+      rob: async (n) => {
+        const v = this.robGold(foe, me, n);
+        await this.wait(v ? 0.5 : 0.1);
+        return v;
       },
       announce: async (title, sub) => {
         this.banner(title, sub, '#e08aff', 30, 1.5);
@@ -1058,6 +1153,18 @@ export class BattleScene implements Scene {
             `<strong style="color:#e08aff">Supermoc: ${esc(u.name)}</strong><p>${esc(u.desc)}</p><p>Kapsle: <b>${this.P.caps}/${this.P.capsNeeded}</b>. Zbieraj fioletowe kapsle, a gdy pierścień się zapełni, dotknij portretu.</p>`,
             { x: por.x - por.r, y: por.y - por.r, w: por.r * 2, h: por.r * 2 }, false,
           );
+        return;
+      }
+      const ep = this.L.E.por;
+      if (Math.hypot(e.x - ep.x, e.y - ep.y) < ep.r * 1.2) {
+        const spec = this.setup.enemy;
+        const h = this.E.habit;
+        const traits = spec.traits.map((t, k) => `<p><b>${esc(spec.traitNames?.[k] ?? t)}</b> — ${esc(TRAIT_DESC[t])}.</p>`).join('');
+        showTip(
+          `<strong style="color:${ELEM_COLOR[spec.elem]}">${esc(this.E.name)}</strong><p>${esc(spec.title)}</p>` +
+            (h ? `<p><b style="color:${h.color}">${esc(h.name)}</b> — ${esc(h.desc(spec.floor))}</p>` : '') + traits,
+          { x: ep.x - ep.r, y: ep.y - ep.r, w: ep.r * 2, h: ep.r * 2 }, true,
+        );
         return;
       }
       const sp = this.spellAt(e.x, e.y);
@@ -1382,8 +1489,44 @@ export class BattleScene implements Scene {
         ctx.globalCompositeOperation = 'source-over';
       }
       if (g.ice) ctx.drawImage(gemArt.ice, x - c / 2, y - c / 2, c, c);
+      if (g.fuse) this.drawFuse(ctx, x, y, c, g.fuse, i);
     }
     ctx.restore();
+  }
+
+  /** A petarda strapped to the gem: fuse spark and a countdown. */
+  private drawFuse(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, n: number, i: number) {
+    const t = this.t;
+    const urgent = n <= 1;
+    if (urgent) {
+      ctx.strokeStyle = rgba('#ff4a2a', 0.5 + 0.4 * Math.sin(t * 10));
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x, y, c * 0.47, 0, TAU);
+      ctx.stroke();
+    }
+    const bx = x + c * 0.24, by = y + c * 0.22, r = c * 0.21;
+    ctx.fillStyle = '#c8261c';
+    ctx.strokeStyle = '#1f1218';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx - r * 0.75, by - r * 1.05, r * 1.5, r * 2.1, r * 0.35);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = '#3a2a1a';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(bx, by - r * 1.05);
+    ctx.quadraticCurveTo(bx + r * 0.6, by - r * 1.6, bx + r * 0.3, by - r * 2);
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    const fl = 0.7 + 0.3 * Math.sin(t * 23 + i);
+    ctx.drawImage(glow('#ffd86a'), bx + r * 0.3 - r * fl, by - r * 2 - r * fl, r * 2 * fl, r * 2 * fl);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.font = `800 ${Math.round(r * 1.5)}px ${BODY}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`${n}`, bx, by + 1);
   }
 
   private drawSide(ctx: CanvasRenderingContext2D, f: Fighter) {
@@ -1639,6 +1782,8 @@ export class BattleScene implements Scene {
     if (f.str.turns > 0) items.push(['#ff6a3d', `+${f.str.amt}`, `${f.str.turns}`]);
     if (f.stun > 0) items.push(['#ffd23f', '✦', `${f.stun}`]);
     if (f.rush > 0) items.push(['#ff8a5a', 'seria', `${f.rush}`]);
+    const h = f.habit;
+    if (h?.every && h.every > 1) items.push([h.color, h.name, `${h.every - (f.habitTurn % h.every)}`]);
     return items;
   }
 

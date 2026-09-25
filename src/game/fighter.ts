@@ -1,4 +1,5 @@
 import type { Look } from '../gfx/portrait';
+import type { HabitDef } from './habits';
 
 export interface SpellInst { id: string; lvl: number }
 
@@ -29,6 +30,16 @@ export class Fighter {
   bribes = 0;
   /** turns left in which a skull match grants an extra turn */
   rush = 0;
+  // monster habit (see habits.ts)
+  habit: HabitDef | null = null;
+  /** own turns counted for the habit's rhythm */
+  habitTurn = 0;
+  armor = 0;
+  coinSteal = 0;
+  /** damage of this enemy's petardy */
+  fuseDmg = 0;
+  /** once-per-fight flags (e.g. rose) */
+  memo: Record<string, number> = {};
 
   // presentation
   hpShown: number;

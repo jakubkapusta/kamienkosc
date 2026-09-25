@@ -14,6 +14,8 @@ export interface BattleSave {
   caps?: number;
   bribes?: number;
   rush?: number;
+  /** enemy habit rhythm and once-per-fight flag */
+  habit?: [number, number];
 }
 
 export type Step = 'battle' | 'reward' | 'event' | 'shop' | 'rest' | 'treasure' | 'upgrade' | 'learn' | 'relic';

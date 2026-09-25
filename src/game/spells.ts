@@ -20,6 +20,12 @@ export interface SpellCtx {
   caps(n: number): Promise<void>;
   /** Shows a short headline (tarot card, fortune wheel). */
   announce(title: string, sub: string): Promise<void>;
+  /** Lights a fuse on these gems (goes off after `turns` enemy turns). */
+  fuse(cells: number[], turns: number): Promise<void>;
+  /** Freezes these gems. */
+  freeze(cells: number[]): Promise<void>;
+  /** Takes up to n złoty from the foe's purse; returns how much. */
+  rob(n: number): Promise<number>;
   poison(dmg: number, turns: number): Promise<void>;
   stun(turns: number): Promise<void>;
   strength(n: number, turns: number): Promise<void>;

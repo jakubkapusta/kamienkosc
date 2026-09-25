@@ -660,6 +660,119 @@ ${eye(114, 92, 6, 5.4, b, { lid: 0.5, dy: 1, skin: p.skin })}
 };
 
 // ---------- bosses ----------
+const kanar: ArtDef = {
+  glow: [[85, 96, 4], [115, 96, 4]],
+  draw: (p, b) => `
+<path d="${SHOULDERS}" fill="#3a2a22" ${S}/>
+${shade('M12 204 C16 180 30 166 48 158 C40 172 38 188 40 204 Z', 0.25)}
+<path d="M34 170 C40 186 44 196 46 204 M166 170 C160 186 156 196 154 204" fill="none" stroke="#fff" stroke-width="1.4" opacity=".18"/>
+<path d="M82 146 L100 170 L118 146 Z" fill="#dfe6ee" ${S2}/>
+<path d="M78 146 L90 180 L100 164 L110 180 L122 146 L130 156 L112 204 L88 204 L70 156 Z" fill="#2a1e18" ${S}/>
+<path d="M86 124 L114 124 L116 150 C106 156 94 156 84 150 Z" fill="url(#sk)" ${S}/>
+<path d="M86 148 L96 184 M114 148 L104 184" stroke="${p.acc}" stroke-width="3.2"/>
+<rect x="86" y="182" width="28" height="20" rx="2" fill="#f4f0e6" ${S2}/>
+<rect x="86" y="182" width="28" height="5" fill="#c8182c"/>
+<text x="100" y="196" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="5.4" text-anchor="middle" fill="#1f1218">KONTROLA</text>
+<path d="M64 94 C54 90 54 108 66 108 Z" fill="url(#sk)" ${S}/>
+<path d="M136 94 C146 90 146 108 134 108 Z" fill="url(#sk)" ${S}/>
+<path d="M100 46 C124 46 138 62 138 90 C138 118 122 140 100 140 C78 140 62 118 62 90 C62 62 76 46 100 46 Z" fill="url(#sk)" ${S}/>
+${shade('M64 104 C70 126 86 140 100 140 C114 140 130 126 136 104 C128 120 114 128 100 128 C86 128 72 120 64 104 Z', 0.14)}
+<path d="M60 82 C58 56 78 42 102 42 C126 42 142 56 140 80 C120 72 80 72 60 82 Z" fill="#4a4a54" ${S}/>
+<path d="M70 58 C80 48 96 44 110 46" fill="none" stroke="#fff" stroke-width="1.4" opacity=".25"/>
+<path d="M56 82 C80 71 124 71 148 80 C152 86 144 90 134 88 C114 82 84 82 62 90 C54 90 52 85 56 82 Z" fill="#3a3a44" ${S}/>
+<path d="M72 84 L94 90 L93 94 L71 88 Z M128 84 L106 90 L107 94 L129 88 Z" fill="${p.hair}"/>
+<ellipse cx="85" cy="97" rx="8" ry="5.4" fill="#140a10"/><ellipse cx="115" cy="97" rx="8" ry="5.4" fill="#140a10"/>
+${glowEye(85, 96, 4, b)}${glowEye(115, 96, 4, b)}
+<path d="M100 98 C96 108 95 112 99 114 C101 115 104 114 104 111" fill="none" ${S2}/>
+<path d="M76 126 C82 114 95 114 100 119 C105 114 118 114 124 126 C120 132 111 130 105 125 C102 123 98 123 95 125 C89 130 80 132 76 126 Z" fill="${p.hair}" ${S2}/>
+<path d="M88 132 C95 137 107 137 114 130" fill="none" ${S}/>
+<rect x="104" y="132" width="4.4" height="4" rx=".8" fill="url(#gold)"/>
+<path d="M150 150 L176 142 L182 164 L156 172 Z" fill="#f2d24a" ${S2}/>
+<circle cx="163" cy="154" r="2" fill="${O}"/><circle cx="170" cy="152" r="2" fill="${O}"/>
+<path d="M156 160 L176 154" stroke="${O}" stroke-width="1" opacity=".5"/>
+<path d="M141 176 C136 164 144 155 155 155 C168 155 172 166 168 177 C164 186 146 186 141 176 Z" fill="url(#sk)" ${S}/>
+<path d="M146 166 C152 164 160 164 164 167" fill="none" ${S2}/>`,
+};
+
+const poludnica: ArtDef = {
+  glow: [[86, 98, 4], [114, 98, 4]],
+  draw: (p, b) => {
+    const wheat = [[62, 72, -40], [72, 58, -24], [86, 50, -10], [114, 50, 10], [128, 58, 24], [138, 72, 40]]
+      .map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y})"><path d="M${x} ${y + 8} L${x} ${y - 10}" stroke="#a8841a" stroke-width="1.4"/>${[0, 1, 2, 3].map((k) => `<ellipse cx="${x - 2.2}" cy="${y - 8 + k * 4}" rx="2" ry="3.2" fill="url(#gold)" ${S2}/><ellipse cx="${x + 2.2}" cy="${y - 6 + k * 4}" rx="2" ry="3.2" fill="url(#gold)" ${S2}/>`).join('')}</g>`)
+      .join('');
+    return `
+<path d="M54 96 C50 60 70 36 100 36 C130 36 150 60 146 96 L154 200 L128 170 L72 170 L46 200 Z" fill="${p.hair}" ${S}/>
+<path d="M60 110 L56 190 M142 110 L146 190 M68 130 L64 180 M134 130 L138 180" stroke="#fff" stroke-width="1.2" opacity=".25"/>
+<path d="${SHOULDERS}" fill="#f2ece0" ${S}/>
+${shade('M12 204 C16 180 30 166 48 158 C40 172 38 188 40 204 Z', 0.14)}
+<path d="M76 150 L84 162 L92 150 L100 162 L108 150 L116 162 L124 150" fill="none" stroke="#c8261c" stroke-width="2.4"/>
+<path d="M78 158 L86 170 L94 158 L102 170 L110 158 L118 170" fill="none" stroke="#2a5ab8" stroke-width="1.6" opacity=".8"/>
+<path d="M88 124 L112 124 L114 150 C106 154 94 154 86 150 Z" fill="url(#sk)" ${S}/>
+<path d="M100 54 C120 54 132 72 132 98 C132 122 118 138 100 138 C82 138 68 122 68 98 C68 72 80 54 100 54 Z" fill="url(#sk)" ${S}/>
+<path d="M70 92 C72 70 84 60 100 60 C116 60 128 70 130 92 C122 76 112 70 100 70 C88 70 78 76 70 92 Z" fill="${p.hair}" ${S2}/>
+${wheat}
+${flower(100, 52, 4.4, '#4a7ae8', '#ffd23f')}${flower(78, 60, 3.6, '#e03a3a', '#1f1218')}${flower(122, 60, 3.6, '#e03a3a', '#1f1218')}
+<ellipse cx="86" cy="99" rx="8" ry="6" fill="#1a0c14" opacity=".85"/><ellipse cx="114" cy="99" rx="8" ry="6" fill="#1a0c14" opacity=".85"/>
+${glowEye(86, 98, 4, b)}${glowEye(114, 98, 4, b)}
+<path d="M78 108 C82 112 90 112 94 108 M106 108 C110 112 118 112 122 108" fill="none" stroke="#6a5a7a" stroke-width="1.4" opacity=".6"/>
+<path d="M100 102 C98 110 97 114 100 116" fill="none" ${S2}/>
+<path d="M90 126 C96 130 104 130 110 126" fill="none" ${S}/>
+<path d="M146 204 L158 140" stroke="${O}" stroke-width="9" stroke-linecap="round"/>
+<path d="M146 204 L158 140" stroke="url(#wood)" stroke-width="5.4" stroke-linecap="round"/>
+<path d="M156 144 C150 112 170 88 198 96 C176 98 164 118 164 146 Z" fill="url(#steel)" ${S}/>
+<path d="M160 136 C160 116 172 102 188 100" fill="none" stroke="#fff" stroke-width="1.4" opacity=".6"/>
+<path d="M141 176 C136 164 144 155 155 155 C168 155 172 166 168 177 C164 186 146 186 141 176 Z" fill="url(#sk)" ${S}/>
+<path d="M146 166 C152 164 160 164 164 167" fill="none" ${S2}/>`;
+  },
+};
+
+const licho: ArtDef = {
+  draw: (p, b) => {
+    const n = 22;
+    const fur = Array.from({ length: n }, (_, k) => {
+      const a = (k / n) * Math.PI * 2 - Math.PI / 2;
+      const r = k % 2 ? 44 : 55;
+      return `${k ? 'L' : 'M'}${(100 + Math.cos(a) * r).toFixed(1)} ${(100 + Math.sin(a) * r * 0.92).toFixed(1)}`;
+    }).join(' ') + ' Z';
+    const body = 'M34 204 L40 180 L48 190 L54 168 L64 180 L72 160 L84 172 L100 156 L116 172 L128 160 L136 180 L146 168 L152 190 L160 180 L166 204 Z';
+    return `
+<path d="${body}" fill="${p.hair}" ${S}/>
+<path d="M58 70 L48 36 L76 58 Z M142 70 L152 36 L124 58 Z" fill="#e8dcc0" ${S}/>
+<path d="${fur}" fill="url(#sk)" ${S}/>
+${shade('M58 118 C68 140 86 150 100 150 C114 150 132 140 142 118 C130 132 116 138 100 138 C84 138 70 132 58 118 Z', 0.2)}
+<path d="M70 72 C80 64 90 62 96 66 M104 66 C110 62 120 64 130 72" fill="none" stroke="${p.hair}" stroke-width="4" stroke-linecap="round"/>
+${eye(100, 92, 22, 19, b, { iris: p.eye, pr: 7, dy: 1 })}
+<path d="M76 80 C86 70 114 70 124 80" fill="none" stroke="${p.hair}" stroke-width="5.4" stroke-linecap="round"/>
+<path d="M70 120 C84 138 116 138 130 120 C116 128 84 128 70 120 Z" fill="#2a0a14" ${S}/>
+${[76, 86, 96, 106, 116].map((x, i) => `<path d="M${x} ${123 + (i % 2)} L${x + 4} ${132 - (i === 2 ? 0 : 2)} L${x + 8} ${123 + (i % 2)} Z" fill="#fffaf0" ${S2}/>`).join('')}
+<path d="M44 196 C38 182 44 170 54 172 L60 186 Z M156 196 C162 182 156 170 146 172 L140 186 Z" fill="url(#sk)" ${S}/>
+<path d="M44 176 L40 170 M50 172 L48 164 M150 172 L152 164 M156 176 L160 170" stroke="${O}" stroke-width="2" stroke-linecap="round"/>`;
+  },
+};
+
+const dzik: ArtDef = {
+  draw: (p, b) => `
+<path d="${SHOULDERS}" fill="#3a4a8a" ${S}/>
+<path d="M44 160 C32 172 24 186 20 204 M52 156 C40 170 32 188 28 204 M156 160 C168 172 176 186 180 204 M148 156 C160 170 168 188 172 204" fill="none" stroke="#f4f4f4" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M74 146 L100 164 L126 146 L130 156 L100 176 L70 156 Z" fill="#2e3c74" ${S2}/>
+<path d="M82 150 C88 170 112 170 118 150" fill="none" stroke="${O}" stroke-width="7"/>
+<path d="M82 150 C88 170 112 170 118 150" fill="none" stroke="url(#gold)" stroke-width="4.4" stroke-dasharray="4 2"/>
+<path d="M56 72 L36 46 L68 58 Z M144 72 L164 46 L132 58 Z" fill="url(#sk)" ${S}/>
+<path d="M56 68 L44 54 L62 62 Z M144 68 L156 54 L138 62 Z" fill="#c88a7a"/>
+<path d="M100 40 C132 40 152 62 150 94 C149 116 136 132 122 142 L78 142 C64 132 51 116 50 94 C48 62 68 40 100 40 Z" fill="url(#sk)" ${S}/>
+<path d="M58 66 L64 42 L74 60 L82 34 L90 54 L100 28 L110 54 L118 34 L126 60 L136 42 L142 66 C122 56 78 56 58 66 Z" fill="${p.hair}" ${S}/>
+${shade('M52 100 C56 120 68 134 80 142 L90 142 C74 130 64 116 62 98 Z', 0.2)}
+<path d="M68 80 L92 88 L91 93 L67 85 Z M132 80 L108 88 L109 93 L133 85 Z" fill="${p.hair}" ${S2}/>
+${eye(81, 94, 5, 4, b, { iris: p.eye, pr: 2.2, lid: 0.35, skin: p.skin })}
+${eye(119, 94, 5, 4, b, { iris: p.eye, pr: 2.2, lid: 0.35, skin: p.skin })}
+<ellipse cx="100" cy="122" rx="26" ry="17" fill="#c88a7a" ${S}/>
+${hi('M82 114 C88 108 100 106 108 108 C98 110 90 114 86 118 Z', 0.35)}
+<ellipse cx="91" cy="124" rx="4.4" ry="6" fill="#3a1a14"/><ellipse cx="109" cy="124" rx="4.4" ry="6" fill="#3a1a14"/>
+<path d="M76 132 C68 128 62 114 66 104 C70 116 76 124 84 128 Z" fill="url(#bone)" ${S2}/>
+<path d="M124 132 C132 128 138 114 134 104 C130 116 124 124 116 128 Z" fill="url(#bone)" ${S2}/>
+<path d="M88 140 C96 144 104 144 112 140" fill="none" ${S2}/>`,
+};
+
 const clerk: ArtDef = {
   glow: [[86, 96, 4], [114, 96, 4]],
   draw: (p, b) => {
@@ -758,7 +871,7 @@ ${[64, 88, 112, 136].map((x) => `<path d="M${x} 82 L${x} 56" stroke="${O}" strok
 
 export const ART: Record<string, ArtDef> = {
   grill, babcia, kombinator, hydraulik, bazarowa, dres, wrozka,
-  imp, drowner, skeleton, ghost, salesman, golem, dragon, troll, goblin,
+  imp, drowner, skeleton, ghost, salesman, golem, dragon, troll, goblin, kanar, poludnica, licho, dzik,
   clerk, tesciowa, palace,
 };
 

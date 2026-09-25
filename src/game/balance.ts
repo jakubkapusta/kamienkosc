@@ -6,11 +6,11 @@
  */
 export const BAL = {
   /** enemy HP multiplier = hpBase + floor * hpFloor */
-  hpBase: 0.62,
+  hpBase: 0.56,
   hpFloor: 0.07,
   eliteHp: 1.15,
   /** damage per enemy skull, by floor (row 0–7); fractions round per hit */
-  skullAt: [1.5, 1.5, 1.75, 2, 2.5, 3, 3.25, 3.5],
+  skullAt: [1.25, 1.25, 1.5, 1.75, 2.25, 2.75, 3, 3.25],
   /** enemy spell power = powBase + floor * powFloor */
   powBase: 0.9,
   powFloor: 0.1,
@@ -18,7 +18,7 @@ export const BAL = {
   /** floor from which normal enemies know two spells / tier-2 spells */
   twoSpellsFrom: 4,
   tier2From: 4,
-  bossHp: 0.76,
+  bossHp: 0.6,
   bossSkull: 2.5,
   bossPow: 1.35,
   bossSkill: 0.95,
@@ -31,7 +31,7 @@ export const BAL = {
   quietAt: 50,
   quietStep: 20,
   /** long runs: enemy difficulty per map row (short runs climb 1 per row, 0–7) */
-  longStep: 0.52,
+  longStep: 0.5,
   /** extra damage per enemy skull per difficulty point beyond the last skullAt entry */
   skullGrow: 0.25,
   /** boss HP and spell power change by this share per difficulty point away from 7 (the short-run boss) */

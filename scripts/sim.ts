@@ -38,6 +38,12 @@ for (const skill of skills) {
     console.log(`  ${cls.padEnd(6)} p95 ${String(t[Math.floor(t.length * 0.95)]).padStart(3)} · ${pct(t.filter((x) => x >= 30).length, t.length).padStart(6)} · ${pct(t.filter((x) => x >= 40).length, t.length).padStart(6)} · ${t[t.length - 1]}`);
   }
   console.log(`\nSupermoc: średnio ${avg(battles.map((b) => b.ults)).toFixed(2)} na walkę, w ${pct(battles.filter((b) => b.ults > 0).length, battles.length)} walk przynajmniej raz`);
+  console.log('\nNawyki potworów (zwykłe walki, piętra 3–6): n · śr. utrata PŻ · tury · przegrane');
+  const mid = battles.filter((b) => b.tier === 'normal' && b.row >= 2 && b.row <= 5);
+  for (const h of [...new Set(mid.map((b) => b.habit))].sort()) {
+    const b = mid.filter((x) => x.habit === h);
+    console.log(`  ${h.padEnd(13)} n=${String(b.length).padStart(4)}  −${(avg(b.map((x) => x.hpLoss)) * 100).toFixed(0).padStart(3)}% PŻ  ${avg(b.map((x) => x.turns)).toFixed(1).padStart(5)} tur  przegrane ${pct(b.filter((x) => !x.won).length, b.length)}`);
+  }
   console.log('\nWalki wg piętra: śr. utrata PŻ (% maks.) · śr. tur gracza · przegrane');
   for (let row = 0; row < ROWS; row++) {
     for (const tier of ['normal', 'elite', 'boss'] as const) {
