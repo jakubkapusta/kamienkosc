@@ -10,7 +10,7 @@ import { portraitURL } from '../gfx/portrait';
 import { glow, roundRect } from '../gfx/sprites';
 import { makeRoad, roadPoint, villageSVG, type P2, type Road } from '../gfx/village';
 import { CLASSES } from '../game/content';
-import { NODE_NAME, ROWS, type MapNode, type NodeType } from '../game/map';
+import { nodeName, type MapNode, type NodeType } from '../game/map';
 import type { Run } from '../game/run';
 import { esc, hideTip, showTip } from '../ui/dom';
 
@@ -41,7 +41,7 @@ function assignPlaces(run: Run): Map<number, string> {
   const parents = new Map<number, number[]>();
   for (const n of nodes) for (const id of n.next) parents.set(id, [...(parents.get(id) ?? []), n.id]);
   for (const n of nodes) {
-    const list = KINDS[n.type];
+    const list = n.type === 'boss' && n.row === run.map.mid ? ['domkultury'] : KINDS[n.type];
     const taken = new Set([
       ...nodes.filter((o) => (o.row === n.row || o.row === n.row - 1) && m!.has(o.id)).map((o) => m!.get(o.id)),
       ...(parents.get(n.id) ?? []).map((id) => m!.get(id)),
@@ -125,26 +125,39 @@ export class MapScene implements Scene {
 
   resize() {
     const W = app.W, H = app.H, s = app.safe;
-    if (W > H * 1.15) {
+    const map = this.run.map, ROWS = map.rows;
+    // index of each node within its row (left → right) and the widest row
+    const slot = new Map<number, number>();
+    const perRow: number[] = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = map.nodes.filter((n) => n.row === r).sort((a, b) => a.x - b.x);
+      row.forEach((n, i) => slot.set(n.id, i));
+      perRow[r] = row.length;
+    }
+    const maxN = Math.max(3, ...perRow);
+    // wide rows zig-zag so neighbouring places don't overlap
+    const zig = (n: MapNode) => (perRow[n.row] >= 4 ? (slot.get(n.id)! % 2 ? 1 : -1) : 0);
+    const left = s.l + 110, right = W - s.r - 120;
+    const colGap = (right - left) / (ROWS - 1);
+    if (W > H * 1.15 && colGap >= 72) {
       // landscape: the road runs left → right, home on the left, the boss on the right
-      const left = s.l + 110, right = W - s.r - 120;
-      const colGap = (right - left) / (ROWS - 1);
       const mh = Math.min(H - s.t - s.b - 190, 560);
       const cy = s.t + 70 + (H - s.t - s.b - 110) / 2;
-      this.sz = clamp(Math.min(colGap * 0.85, mh / 3), 52, 112);
-      for (const n of this.run.map.nodes) this.pos.set(n.id, [left + n.row * colGap, cy + (n.x - 0.5) * mh + this.sz * 0.4]);
+      this.sz = clamp(Math.min(colGap * (maxN > 3 ? 1 : 0.85), mh / (maxN * 0.95)), 52, 112);
+      for (const n of map.nodes) this.pos.set(n.id, [left + n.row * colGap + zig(n) * colGap * 0.2, cy + (n.x - 0.5) * mh + this.sz * 0.4]);
       this.home = [s.l + 44, cy + this.sz * 0.4];
       this.worldH = H;
     } else {
-      // portrait: a tall village you scroll through, with room to breathe between rows
-      const mw = Math.min(W - 70, 560);
+      // portrait (and long runs on narrow landscape screens): a tall village you scroll through
+      const mw = Math.min(W - 70, maxN > 3 ? 620 : 560);
       const cx = W / 2;
-      this.sz = clamp(mw / 3.3, 56, 96);
+      this.sz = clamp(mw / (maxN > 3 ? maxN * 0.92 : 3.3), 56, 96);
       const top = s.t + 76 + this.sz * 1.4 * 0.86;
-      const rowGap = Math.max(this.sz * 1.55, (H - s.b - 118 - top) / (ROWS - 1));
+      const rowGap = Math.max(this.sz * (maxN > 3 ? 1.85 : 1.55), (H - s.b - 118 - top) / (ROWS - 1));
       const bottom = top + rowGap * (ROWS - 1);
-      for (const n of this.run.map.nodes) this.pos.set(n.id, [cx + (n.x - 0.5) * mw, bottom - n.row * rowGap]);
-      this.home = [cx, bottom + rowGap * 0.62];
+      for (const n of map.nodes) this.pos.set(n.id, [cx + (n.x - 0.5) * mw, bottom - n.row * rowGap + zig(n) * rowGap * 0.2]);
+      // three starting places need room for stacked name tags above the hero
+      this.home = [cx, bottom + rowGap * (perRow[0] >= 3 ? 0.85 : 0.62)];
       this.worldH = Math.max(H, this.home[1] + s.b + 60);
     }
     const rng = new RNG(hash(this.run.seed, 'roads'));
@@ -154,6 +167,8 @@ export class MapScene implements Scene {
       for (const id of n.next) this.roads.set(`${n.id}-${id}`, makeRoad(this.pos.get(n.id)!, this.pos.get(id)!, rng));
     }
     this.marker = this.run.pos >= 0 ? this.pos.get(this.run.pos)! : this.home;
+    // the layout may have switched between scrolling and fixed: keep the camera inside the world
+    this.camY = this.follow ? this.camTarget() : clamp(this.camY, 0, Math.max(0, this.worldH - H));
     this.buildBg();
   }
 
@@ -229,7 +244,7 @@ export class MapScene implements Scene {
       if (!avail || long) {
         const [x, y] = this.pos.get(n.id)!;
         const note = this.run.visited.includes(n.id) ? 'Już tu byłeś.' : avail ? '' : 'Za daleko. Na piechotę nie dojdziesz.';
-        showTip(`<strong>${esc(PLACE_NAMES[placeOf(this.run, n)])}</strong><p>${NODE_NAME[n.type]}${note ? ` · ${note}` : ''}</p>`, { x: x - 20, y: y - this.sz - this.camY, w: 40, h: this.sz }, false);
+        showTip(`<strong>${esc(PLACE_NAMES[placeOf(this.run, n)])}</strong><p>${nodeName(this.run.map, n)}${note ? ` · ${note}` : ''}</p>`, { x: x - 20, y: y - this.sz - this.camY, w: 40, h: this.sz }, false);
         return;
       }
       this.locked = true;
@@ -374,11 +389,18 @@ export class MapScene implements Scene {
       this.drawPlace(ctx, placeOf(this.run, n), x, y + bob, size, done ? 0.55 : 1, done);
       this.badge(ctx, n.type, x + size * 0.34, y - size * 0.8 + bob, done, isAvail);
     }
-    if (!this.locked)
-      for (const n of this.available()) {
-        const [x, y] = this.pos.get(n.id)!;
-        this.label(ctx, PLACE_NAMES[placeOf(this.run, n)], x, y + (n.type === 'boss' ? 1.4 : 1) * this.sz * 0.2 + 12);
+    if (!this.locked) {
+      // name tags under the reachable places; push a tag down if it would cover its neighbour
+      const placed: [number, number, number][] = [];
+      for (const n of [...this.available()].sort((a, b) => this.pos.get(a.id)![0] - this.pos.get(b.id)![0])) {
+        const [x, y0] = this.pos.get(n.id)!;
+        let y = y0 + (n.type === 'boss' ? 1.4 : 1) * this.sz * 0.2 + 12;
+        const [lx, w] = this.labelBox(ctx, PLACE_NAMES[placeOf(this.run, n)], x);
+        while (placed.some(([px, pw, py]) => lx < px + pw + 3 && px < lx + w + 3 && Math.abs(py - y) < 20)) y += 20;
+        placed.push([lx, w, y]);
+        this.label(ctx, PLACE_NAMES[placeOf(this.run, n)], x, y);
       }
+    }
 
     this.fx.render(ctx);
     this.drawHero(ctx);
@@ -448,10 +470,14 @@ export class MapScene implements Scene {
     ctx.restore();
   }
 
-  private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  private labelBox(ctx: CanvasRenderingContext2D, text: string, x: number): [number, number] {
     ctx.font = `600 11px ${BODY}`;
     const w = ctx.measureText(text).width + 14;
-    const lx = clamp(x - w / 2, 4, app.W - w - 4);
+    return [clamp(x - w / 2, 4, app.W - w - 4), w];
+  }
+
+  private label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
+    const [lx, w] = this.labelBox(ctx, text, x);
     roundRect(ctx, lx, y - 9, w, 18, 9);
     ctx.fillStyle = 'rgba(20,14,34,0.88)';
     ctx.fill();

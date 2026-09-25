@@ -34,7 +34,8 @@ Workflow `.github/workflows/pages.yml` buduje grę i publikuje `dist/` przy każ
 ```bash
 npm run sim                 # 300 wypraw na klasę, gracz dobry (0.9) i przeciętny (0.6)
 npm run sim -- 1000 0.9     # więcej wypraw, jeden poziom gracza
+npm run sim -- 500 0.9 long  # długa wyprawa (16 pięter)
 BAL='{"bossHp":0.8}' npm run sim   # szybki eksperyment bez zmiany kodu
 ```
 
-Symulator (`src/sim/sim.ts`) odtwarza reguły walki bez grafiki i przechodzi całe wyprawy rozsądną SI gracza. Wszystkie pokrętła trudności są w `src/game/balance.ts`.
+Symulator (`src/sim/sim.ts`) odtwarza reguły walki bez grafiki i przechodzi całe wyprawy rozsądną SI gracza. Wszystkie pokrętła trudności są w `src/game/balance.ts`. Cel: rozsądny gracz wygrywa ~35% krótkich i ~30% długich wypraw.

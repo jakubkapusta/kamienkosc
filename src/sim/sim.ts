@@ -4,17 +4,17 @@
  * rests, takes rewards and answers events.
  */
 import { hash, RNG } from '../core/rng';
-import { AIR, CAP, COIN, EARTH, FIRE, SKULL } from '../core/types';
+import { AIR, CAP, COIN, EARTH, FIRE, SKULL, WATER } from '../core/types';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, type Birth, type Gem } from '../game/board';
 import { BAL, quietMult } from '../game/balance';
-import { CLASSES, MODS } from '../game/content';
-import { genEnemy, type EnemySpec, type Tier } from '../game/enemies';
+import { CLASSES, heroSetup, MODS } from '../game/content';
+import { enemyFor, type EnemySpec, type Tier } from '../game/enemies';
 import { EVENTS } from '../game/events';
 import { Fighter } from '../game/fighter';
-import type { MapNode } from '../game/map';
+import { isFinalBoss, type MapNode, type RunLen } from '../game/map';
 import { addRelic, has, newRun, randomRelics, rngFor, type Run } from '../game/run';
-import { affordable, PLAYER_SPELLS, SPELLS, spellPrice, type SpellCtx } from '../game/spells';
+import { affordable, costOf, PLAYER_SPELLS, SPELLS, spellPrice, type SpellCtx } from '../game/spells';
 import { ULTS } from '../game/ult';
 
 export interface BattleOut { won: boolean; hp: number; turns: number; gold: number; ults: number }
@@ -31,6 +31,8 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   E.vampiric = spec.traits.includes('vampiric');
   P.skull = BAL.playerSkull;
   if (has(run, 'skullring')) P.skull += 1;
+  heroSetup(P, run.cls);
+  P.purse = run.gold;
   if (has(run, 'lens')) P.maxMana = P.maxMana.map((m) => m + 6);
   if (spec.tier === 'boss') E.maxMana = E.maxMana.map((m) => m + 6);
   let freeSpell = has(run, 'hourglass');
@@ -83,6 +85,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
     if (isP && run.cls === 'storm' && maxLen >= 4) start(actor, AIR, 3);
     if (isP && has(run, 'prismeye') && maxLen >= 4) for (let c = 0; c < 4; c++) start(actor, c, 2);
     if (isP && run.cls === 'druid' && counts[EARTH]) heal(actor, 1);
+    if (nExp && actor.expMana) start(actor, WATER, actor.expMana * nExp);
     if (counts[SKULL]) {
       let dmg = counts[SKULL] * (actor.skull + actor.str.amt);
       if (mods.includes('bloodmoon')) dmg *= 2;
@@ -92,8 +95,13 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       if (!isP && actor.vampiric && dealt) heal(actor, Math.ceil(dealt / 2));
       if (!isP && dealt && has(run, 'thorns')) hurt(actor, 2);
     }
-    if (counts[COIN] && isP) gold += counts[COIN] * (has(run, 'goldtooth') ? 2 : 1);
-    if (counts[CAP] && isP) P.caps = Math.min(BAL.capsNeeded, P.caps + counts[CAP]);
+    if (counts[COIN] && isP) {
+      const g = counts[COIN] * (has(run, 'goldtooth') ? 2 : 1);
+      gold += g;
+      actor.purse += g;
+      if (actor.coinHit) hurt(foe, counts[COIN] * actor.coinHit);
+    }
+    if (counts[CAP] && isP) P.caps = Math.min(P.capsNeeded, P.caps + counts[CAP]);
     if (isP && nExp && has(run, 'runeflame')) hurt(foe, 3 * nExp);
   };
 
@@ -142,6 +150,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       if (!groups.length) break;
       const plan = board.plan(groups, prefer);
       if (plan.maxLen >= 4) extra = true;
+      if (actor.rush > 0 && groups.some((g) => g.t === SKULL)) extra = true;
       clearCells(actor, plan.clear, plan.births, plan.maxLen);
       prefer = [];
       if (over) break;
@@ -159,6 +168,8 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       damage: async (n) => void hurt(foe, n * pow),
       heal: async (n) => heal(me, n * pow),
       shield: async (n) => void (me.shield += Math.round(n * pow)),
+      caps: async (n) => void (me.isPlayer && (me.caps = Math.min(me.capsNeeded, me.caps + n))),
+      announce: async () => {},
       unshield: async () => void (foe.shield = 0),
       poison: async (d, t) => void (foe.poison = { dmg: Math.max(foe.poison.dmg, Math.round(d * pow)), turns: foe.poison.turns + t }),
       stun: async (t) => void (foe.stun += t),
@@ -199,14 +210,20 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
 
   const cast = async (f: Fighter, id: string, lvl: number) => {
     const def = SPELLS[id];
-    for (let c = 0; c < 4; c++) f.mana[c] -= def.cost[c];
+    const cost = costOf(f, def);
+    for (let c = 0; c < 4; c++) f.mana[c] -= cost[c];
+    if (def.gold) {
+      const price = def.gold(f.bribes++);
+      f.purse -= price;
+      if (f === P) gold -= price;
+    }
     if (def.hp) f.hp = Math.max(1, f.hp - def.hp);
     await def.cast(ctxFor(f), lvl);
   };
 
   const act = async (f: Fighter, s: number): Promise<boolean> => {
     const ult = ULTS[run.cls];
-    if (f === P && P.caps >= BAL.capsNeeded && (!ult.worth || ult.worth(P, E))) {
+    if (f === P && P.caps >= P.capsNeeded && (!ult.worth || ult.worth(P, E))) {
       P.caps = 0;
       ultsUsed++;
       await ult.cast(ctxFor(P));
@@ -255,6 +272,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       extra = await act(f, f === P ? skill : spec.skill);
     }
     if (f.str.turns > 0 && --f.str.turns === 0) f.str.amt = 0;
+    if (f.rush > 0) f.rush--;
     if (over) break;
     if (extra) {
       if (f === P && has(run, 'warhorn')) hurt(E, 3);
@@ -266,7 +284,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
 // ---------------------------------------------------------------- whole runs
 
 /** How much the sim player values a spell (rough power ranking). */
-const RANK = ['meteor', 'inferno', 'blizzard', 'leech', 'storm', 'fireball', 'chain', 'slipper', 'quake', 'frenzy', 'venom', 'necro', 'prism', 'frostbolt', 'mend', 'stoneskin', 'theft', 'alchemy', 'tide', 'verdant', 'whirl', 'bloodpact'];
+const RANK = ['meteor', 'inferno', 'blizzard', 'leech', 'storm', 'fireball', 'chain', 'slipper', 'rumble', 'chisel', 'tarot', 'change', 'quake', 'frenzy', 'venom', 'necro', 'prism', 'frostbolt', 'mend', 'stoneskin', 'theft', 'grounds', 'stripes', 'drip', 'bribe', 'alchemy', 'tide', 'verdant', 'whirl', 'bloodpact'];
 const rankOf = (id: string) => RANK.length - RANK.indexOf(id);
 
 export interface RunOut {
@@ -298,18 +316,19 @@ function upgradeBest(run: Run) {
   return !!cands[0];
 }
 
-export async function simRun(cls: string, seed: number, skill: number): Promise<RunOut> {
-  const run = newRun(cls, seed, null);
+export async function simRun(cls: string, seed: number, skill: number, len: RunLen = 'short'): Promise<RunOut> {
+  const run = newRun(cls, seed, null, len);
   const out: RunOut = { cls, won: false, deathRow: -1, deathTier: null, battles: [], bossHp: null, relics: 0 };
   const choose = new RNG(hash(seed, 'player'));
 
-  const fight = async (n: MapNode, tier: Tier, floor: number) => {
-    const enemy = genEnemy(hash(run.seed, 'enemy', n.id, n.type), floor, tier);
+  const fight = async (n: MapNode, tier: Tier) => {
+    const enemy = enemyFor(run, n, tier);
     const mrng = rngFor(run, 'mods', n.id);
     const mods: string[] = [];
     const chance = tier === 'boss' ? 1 : tier === 'elite' ? 0.7 : n.row >= 1 ? 0.35 : 0;
     if (mrng.chance(chance)) mods.push(mrng.pick(Object.keys(MODS)));
-    if (tier === 'boss') out.bossHp = run.hp / run.maxHp;
+    const final = isFinalBoss(run.map, n);
+    if (final) out.bossHp = run.hp / run.maxHp;
     const before = run.hp;
     const r = await simBattle(run, enemy, mods, hash(run.seed, 'battle', n.id), skill);
     out.battles.push({ row: n.row, tier, turns: r.turns, hpLoss: (before - r.hp) / run.maxHp, won: r.won, ults: r.ults });
@@ -318,13 +337,13 @@ export async function simRun(cls: string, seed: number, skill: number): Promise<
       out.deathTier = tier;
       return false;
     }
-    run.hp = Math.min(run.maxHp, r.hp + Math.round(run.maxHp * BAL.winHeal) + (has(run, 'bandage') ? 8 : 0));
+    run.hp = Math.min(run.maxHp, r.hp + Math.round(run.maxHp * (tier === 'boss' && !final ? BAL.midHeal : BAL.winHeal)) + (has(run, 'bandage') ? 8 : 0));
     const grng = rngFor(run, 'gold', n.id);
     run.gold += r.gold + (tier === 'elite' ? 30 : tier === 'boss' ? 60 : 12) + n.row * 3 + grng.int(0, 8);
-    if (tier === 'boss') return true;
+    if (final) return true;
     const rr = rngFor(run, 'reward', n.id);
-    if (tier === 'elite') {
-      const rel = randomRelics(run, rr, 2);
+    if (tier !== 'normal') {
+      const rel = randomRelics(run, rr, tier === 'boss' ? 3 : 2);
       if (rel[0]) addRelic(run, rel[0]);
     }
     const opts = rr.shuffle(PLAYER_SPELLS.filter((id) => !run.spells.some((s) => s.id === id))).slice(0, 3);
@@ -354,8 +373,8 @@ export async function simRun(cls: string, seed: number, skill: number): Promise<
 
     if (n.type === 'battle' || n.type === 'elite' || n.type === 'boss') {
       const tier: Tier = n.type === 'battle' ? 'normal' : n.type;
-      if (!(await fight(n, tier, n.row))) break;
-      if (tier === 'boss') {
+      if (!(await fight(n, tier))) break;
+      if (isFinalBoss(run.map, n)) {
         out.won = true;
         break;
       }
@@ -412,7 +431,7 @@ export async function simRun(cls: string, seed: number, skill: number): Promise<
         break;
       }
       if (res.then === 'battle') {
-        if (!(await fight(n, 'normal', n.row + 1))) break;
+        if (!(await fight(n, 'normal'))) break;
       } else if (res.then === 'upgrade') upgradeBest(run);
       else if (res.then === 'learn') {
         const opts = rngFor(run, 'node', n.id, 'learn').shuffle(PLAYER_SPELLS.filter((id) => !run.spells.some((s) => s.id === id))).slice(0, 3);

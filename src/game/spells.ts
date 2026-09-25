@@ -1,5 +1,6 @@
 import type { RNG } from '../core/rng';
-import { AIR, COIN, DARK, EARTH, FIRE, SKULL, WATER } from '../core/types';
+import { AIR, CAP, COIN, DARK, EARTH, FIRE, SKULL, WATER } from '../core/types';
+import { BOMB } from './board';
 import type { Board } from './board';
 import type { Fighter } from './fighter';
 
@@ -15,6 +16,10 @@ export interface SpellCtx {
   shield(n: number): Promise<void>;
   /** Knocks off all of the foe's shield. */
   unshield(): Promise<void>;
+  /** Adds bottle caps to the supermove charge (player only). */
+  caps(n: number): Promise<void>;
+  /** Shows a short headline (tarot card, fortune wheel). */
+  announce(title: string, sub: string): Promise<void>;
   poison(dmg: number, turns: number): Promise<void>;
   stun(turns: number): Promise<void>;
   strength(n: number, turns: number): Promise<void>;
@@ -34,6 +39,8 @@ export interface SpellDef {
   elem: number;
   cost: number[];
   hp?: number;
+  /** price in złoty, paid from the run purse; `uses` = casts so far this fight */
+  gold?(uses: number): number;
   quick?: boolean;
   /** p = player loot, e = enemy only, b = both */
   pool: 'p' | 'e' | 'b';
@@ -44,6 +51,14 @@ export interface SpellDef {
 }
 
 const L = (l: number, a: number, b: number) => (l >= 2 ? b : a);
+const TAROT: [string, string][] = [
+  ['Wieża', 'Coś się wali. Na szczęście nie u ciebie.'],
+  ['Słońce', 'Idzie ku lepszemu. Leczysz się.'],
+  ['Cesarz', 'Stabilizacja. Tarcza.'],
+  ['Śmierć', 'Spokojnie, to tylko metafora. Trucizna.'],
+  ['Wisielec', 'Wróg zawiesza się na turę.'],
+  ['Mag', 'Mana z każdej strony.'],
+];
 const missing = (f: Fighter) => f.maxHp - f.hp;
 const count = (b: Board, t: number) => b.g.filter((g) => g && g.t === t).length;
 
@@ -75,6 +90,77 @@ const list: SpellDef[] = [
       await c.damage(L(l, 8, 11), 'rock');
     },
     ai: (_, foe) => (foe.shield > 0 ? 12 : 9),
+  },
+  // ---- Złota Rączka Mietek
+  {
+    id: 'drip', name: 'Cieknący kran', elem: WATER, cost: [0, 5, 0, 0], pool: 'p', tier: 1, quick: true,
+    desc: (l) => `${L(l, 6, 8)} losowych kamieni zamienia się w niebieskie. Uszczelka za 2 zł, robocizna za 200. Nie kończy tury.`,
+    cast: (c, l) => c.convert(c.pick(L(l, 6, 8), (t) => t !== WATER && t !== CAP), WATER),
+    ai: () => 6,
+  },
+  {
+    id: 'chisel', name: 'Kucie ściany', elem: WATER, cost: [0, 4, 3, 0], pool: 'p', tier: 1,
+    desc: (l) => `Wstawia ${L(l, 2, 3)} bomby w losowe kamienie i zadaje ${L(l, 4, 6)} obrażeń. Sąsiad z dołu już puka.`,
+    cast: async (c, l) => {
+      await c.special(c.pick(L(l, 2, 3), (_, i) => !c.board.g[i]!.sp), BOMB);
+      await c.damage(L(l, 4, 6), 'rock');
+    },
+  },
+  // ---- Pani Jadzia z bazaru
+  {
+    id: 'change', name: 'Reszta w drobnych', elem: AIR, cost: [0, 3, 0, 4], pool: 'p', tier: 1,
+    desc: (l) => `${L(l, 7, 9)} losowych kamieni zamienia się w monety. „Nie mam wydać, weźmie pan w groszówkach.”`,
+    cast: (c, l) => c.convert(c.pick(L(l, 7, 9), (t) => t !== COIN && t !== CAP), COIN),
+    ai: (me) => (me.coinHit ? 10 : 3),
+  },
+  {
+    id: 'bribe', name: 'Łapówka', elem: AIR, cost: [0, 0, 0, 0], pool: 'p', tier: 1, quick: true,
+    gold: (uses) => 15 * (uses + 1),
+    desc: (l) => `Płacisz z sakiewki (15 zł, potem 30, 45…), a wróg traci następną turę.${l >= 2 ? ' Do tego oddaje ci 4 many.' : ''} Nie kończy tury.`,
+    cast: async (c, l) => {
+      await c.stun(1);
+      if (l >= 2) await c.drain(4, true);
+    },
+    ai: (me, foe) => (me.purse >= 45 + 15 * me.bribes && foe.hp > 12 ? 8 : 0),
+  },
+  // ---- Seba z osiedla
+  {
+    id: 'rumble', name: 'Ustawka', elem: FIRE, cost: [5, 0, 0, 0], pool: 'p', tier: 1,
+    desc: (l) => `Zbiera do ${L(l, 6, 8)} czaszek z planszy, każda bije jak zwykle. Umówione pod Biedronką.`,
+    cast: (c, l) => c.destroy(c.pick(L(l, 6, 8), (t) => t === SKULL), 'fire'),
+    ai: (_, __, b) => (count(b, SKULL) >= 4 ? 11 : 2),
+  },
+  {
+    id: 'stripes', name: 'Trzy paski', elem: EARTH, cost: [0, 0, 4, 0], pool: 'p', tier: 1,
+    desc: (l) => `Tarcza: ${L(l, 3, 5)} + 1 za każdą czaszkę na planszy. Oryginał, z Turcji.`,
+    cast: (c, l) => c.shield(L(l, 3, 5) + c.cells((t) => t === SKULL).length),
+    ai: (me) => (me.shield < 5 ? 8 : 0),
+  },
+  // ---- Pani Bożenka, wróżka
+  {
+    id: 'grounds', name: 'Fusy z kawy', elem: WATER, cost: [0, 4, 0, 3], pool: 'p', tier: 1,
+    desc: (l) => `Wróg traci ${L(l, 5, 7)} many z największej puli, a ty dostajesz ${L(l, 2, 3)} kapsle. „Widzę… zawał. Albo zawiasy.”`,
+    cast: async (c, l) => {
+      await c.drain(L(l, 5, 7), false);
+      await c.caps(L(l, 2, 3));
+    },
+    ai: (me, foe) => (Math.max(...foe.mana) >= 5 || me.caps < me.capsNeeded - 1 ? 8 : 2),
+  },
+  {
+    id: 'tarot', name: 'Karta tarota', elem: AIR, cost: [0, 0, 0, 6], pool: 'p', tier: 1,
+    desc: (l) => `Losujesz kartę: 12 obrażeń, 12 PŻ, 12 tarczy, trucizna, zamroczenie wroga albo mana.${l >= 2 ? ' Wszystko o 40% mocniejsze.' : ''}`,
+    cast: async (c, l) => {
+      const m = l >= 2 ? 1.4 : 1;
+      const card = c.rng.int(0, 5);
+      const [title, sub] = TAROT[card];
+      await c.announce(title, sub);
+      if (card === 0) await c.damage(Math.round(12 * m), 'dark');
+      else if (card === 1) await c.heal(Math.round(12 * m));
+      else if (card === 2) await c.shield(Math.round(12 * m));
+      else if (card === 3) await c.poison(Math.round(3 * m), 4);
+      else if (card === 4) await c.stun(1);
+      else for (let k = 0; k < 4; k++) await c.gain(k, Math.round(4 * m));
+    },
   },
   {
     id: 'chain', name: 'Zwarcie w instalacji', elem: AIR, cost: [0, 0, 0, 7], pool: 'p', tier: 1,
@@ -278,8 +364,21 @@ export const ENEMY_POOL: string[][] = [
   ['curse', 'bones', 'leech', 'necro'],
 ];
 
+/** What a spell really costs this fighter (Seba pays extra on the main colour). */
+export function costOf(f: Fighter | null, def: SpellDef): number[] {
+  const c = [...def.cost];
+  const add = f?.costAdd ?? 0;
+  if (add) {
+    const k = def.elem < 4 && c[def.elem] > 0 ? def.elem : c.indexOf(Math.max(...c));
+    if (c[k] > 0) c[k] += add;
+  }
+  return c;
+}
+
 export function affordable(f: Fighter, def: SpellDef) {
-  for (let c = 0; c < 4; c++) if (f.mana[c] < def.cost[c]) return false;
+  const cost = costOf(f, def);
+  for (let c = 0; c < 4; c++) if (f.mana[c] < cost[c]) return false;
+  if (def.gold && f.purse < def.gold(f.bribes)) return false;
   if (def.hp && f.hp <= def.hp + 1) return false;
   return true;
 }

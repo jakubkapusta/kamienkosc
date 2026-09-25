@@ -6,6 +6,10 @@ const PALS: Record<string, Pal> = {
   grill: { skin: '#f0b89a', acc: '#d8402c', eye: '#fff' },
   babcia: { skin: '#f2c4a8', acc: '#c8322a', eye: '#fff', hair: '#bdb6b0' },
   kombinator: { skin: '#e8b494', acc: '#2a4ab8', eye: '#fff', hair: '#2a1a12' },
+  hydraulik: { skin: '#eab08e', acc: '#2a64c8', eye: '#7ac8ff', hair: '#3a2616' },
+  bazarowa: { skin: '#f0bea0', acc: '#c83a6a', eye: '#ffd86a', hair: '#d8762e' },
+  dres: { skin: '#e8b08c', acc: '#26262e', eye: '#ff6a3a', hair: '#3a2a1e' },
+  wrozka: { skin: '#e8b89a', acc: '#7a2ab8', eye: '#d86aff', hair: '#1e1420' },
   imp: { skin: '#d8483a', acc: '#35a04a', eye: '#ffcf3a' },
   drowner: { skin: '#5aa08a', acc: '#2a6a8a', eye: '#c8d84a' },
   skeleton: { skin: '#e8dcc0', acc: '#8a2a3a', eye: '#7af0ff' },
@@ -27,7 +31,7 @@ export function gallery() {
   for (const id of Object.keys(ART)) {
     const pal = PALS[id];
     for (const blink of [false, true]) {
-      if (blink && id !== 'grill') continue;
+      if (blink && !['grill', 'hydraulik', 'bazarowa', 'dres', 'wrozka'].includes(id)) continue;
       const fig = document.createElement('figure');
       fig.style.cssText = 'margin:0;color:#f3e7cf;font:14px sans-serif;text-align:center';
       fig.innerHTML = `<img src="${svgURL(artSVG(id, pal, blink, { crown: id === 'dragon' }))}" style="width:100%;background:radial-gradient(#3a2a4a,#120c1c);border-radius:50%"><figcaption>${id}${blink ? ' (mruga)' : ''}</figcaption>`;

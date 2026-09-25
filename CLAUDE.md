@@ -27,13 +27,13 @@ Dev-only helpers: `window.__sf = { app, game }` (inspect `__sf.app.scene`, call 
 | Want to change | Edit |
 | --- | --- |
 | Difficulty numbers | `src/game/balance.ts` (`BAL`) — then run the sim |
-| Heroes (HP, starting spells, perk text, portrait palette) | `src/game/content.ts` `CLASSES` (perk *logic* is in `collect()` in `scenes/battle.ts` **and** `sim/sim.ts`) |
+| Heroes (HP, starting spells, perk text, portrait palette) | `src/game/content.ts` `CLASSES` — 7 heroes. Numeric perks go in `traits` (skull bonus, `costAdd`, `coinHit`, `expMana`, `caps`) and reach the `Fighter` via `heroSetup()`; the three original perks are still `run.cls` checks in `collect()` in `scenes/battle.ts` **and** `sim/sim.ts`. Move AI (`game/ai.ts`) reads the same fields so the sim plays each hero sensibly |
 | Supermoves | `src/game/ult.ts` |
-| Spells (player + enemy) | `src/game/spells.ts`; enemy spell pools per element: `ENEMY_POOL` |
+| Spells (player + enemy) | `src/game/spells.ts`; enemy spell pools per element: `ENEMY_POOL`. Always charge `costOf(f, def)`, not `def.cost` (Seba pays extra); `def.gold(uses)` = price in złoty from `Fighter.purse` (Łapówka) |
 | Relics, battle modifiers | `src/game/content.ts` (`RELICS`, `MODS`); relic effects are checked with `has(run, 'id')` in battle/flow/sim |
 | Enemies, bosses, names, traits | `src/game/enemies.ts` |
 | Random events | `src/game/events.ts` |
-| Map generation (rows, node types) | `src/game/map.ts`; village drawing `src/gfx/village.ts`; place per node `placeOf()` in `scenes/map.ts` |
+| Map generation (rows, node types, run lengths `LENGTHS`) | `src/game/map.ts`; village drawing `src/gfx/village.ts`; place per node `placeOf()` in `scenes/map.ts` |
 | Screens between battles (reward, shop, rest, event, game over, pause) | `src/flow.ts` |
 | Battle rules, animation, battle HUD | `src/scenes/battle.ts` |
 | Enemy / player move AI | `src/game/ai.ts` |
@@ -48,6 +48,7 @@ Dev-only helpers: `window.__sf = { app, game }` (inspect `__sf.app.scene`, call 
 ## Rules that bite
 
 - **The sim mirrors the battle.** `src/sim/sim.ts` re-implements the rules of `scenes/battle.ts` without rendering. Any rule change (damage, perks, relic effects, modifiers, extra turns, supermoves) must be made in **both** places or the balance numbers lie.
+- **New hero checklist:** `CLASSES` entry (+ `short`, `she`, `traits`), portrait in `gfx/art.ts` (add to `ART` and the gallery palettes), supermove in `game/ult.ts`, starting spells, `SIGNATURES` in `flow.ts`, then tune HP with the sim until it sits with the others.
 - **Gem types:** 7 (`FIRE WATER EARTH AIR SKULL COIN CAP` in `core/types.ts`). Adding one means: `GEM_TYPES`, `Board.weights`, the `counts` arrays (battle, sim, ai), `GEM_PAL`, `GEM_SVG`. Board save packs the type in 3 bits (max 8 types).
 - **Saves** live in `localStorage` (`kamienkosc.run.v1`, `kamienkosc.meta.v1`, `kamienkosc.sound`). A run embeds its generated map; changing generators only affects new runs. Change `v`/key if the `Run` shape changes incompatibly. Mid-battle state is `BattleSave` in `game/run.ts`.
 - **Everything generated comes from the run seed** (`rngFor(run, ...)`, `hash(...)`) so reloads reproduce the same map, enemies, shop and rewards. Don't use `Math.random()` for gameplay, only for visuals.
@@ -55,14 +56,17 @@ Dev-only helpers: `window.__sf = { app, game }` (inspect `__sf.app.scene`, call 
 - **Mobile first.** Test at 375×812 (portrait layout) and a wide window (landscape layout: battle side panels, horizontal village map). The map scrolls vertically on phones.
 - **Cisza nocna** (`BAL.quietAt`, `quietMult()` in `balance.ts`): after ~50 turns skulls hit ×2, then +1× every 20 turns, so healer-vs-shield fights can't stall. Keep it in both battle and sim.
 - **Shops** appear only from floor 5 (`SHOP_FROM` in `game/map.ts`); earlier the player can't afford anything.
+- **Two run lengths.** Short: 8 rows, 2–3 places per row, one boss. Long ("bilet dobowy"): 16 rows, 3–5 places, a halfway boss on row 7 („Szef dzielnicy” at the Dom Kultury, relic pick + `BAL.midHeal`) and a different final boss. Never assume 8 rows: use `run.map.rows`, `map.mid`, `isFinalBoss()`.
+- **Enemy difficulty is not the row.** Always get enemies through `enemyFor(run, node, tier)`; it maps the row through `diffOf()` (short: row, long: row × `BAL.longStep`) and picks distinct bosses. Difficulty can be fractional and exceed 7 (`skullFor()`, boss `bossGrow`).
 - Vite `base` is `./` — keep asset paths relative so Pages subpaths work.
 
 ## Balance
 
-Target: a sensible player wins ~40% of runs, classes within a few points of each other, ordinary fights ~14 player turns (commute length), no sudden difficulty walls between floors, no stalled fights (check the „Długie walki” block: ≥40 turns should stay under ~1%).
+Target: a sensible player wins ~35% of short runs and ~30% of long ones, classes within a few points of each other, ordinary fights ~14 player turns (commute length), no sudden difficulty walls between floors, no stalled fights (check the „Długie walki” block: ≥40 turns should stay under ~1%).
 
 ```bash
 npm run sim -- 1000 0.9                 # 1000 runs per class, player AI skill 0.9
+npm run sim -- 500 0.9 long             # the same for the 16-floor run
 BAL='{"bossHp":0.8}' npm run sim        # try knob values without editing code
 ```
 

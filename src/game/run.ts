@@ -1,7 +1,7 @@
 import { hash, RNG } from '../core/rng';
 import { CLASSES, RELICS } from './content';
 import type { SpellInst } from './fighter';
-import { genMap, type MapData } from './map';
+import { genMap, type MapData, type RunLen } from './map';
 
 export interface BattleSave {
   turn: 0 | 1;
@@ -12,6 +12,8 @@ export interface BattleSave {
   gold: number;
   freeSpell: boolean;
   caps?: number;
+  bribes?: number;
+  rush?: number;
 }
 
 export type Step = 'battle' | 'reward' | 'event' | 'shop' | 'rest' | 'treasure' | 'upgrade' | 'learn' | 'relic';
@@ -38,13 +40,13 @@ export interface Run {
 const KEY = 'kamienkosc.run.v1';
 const META = 'kamienkosc.meta.v1';
 
-export function newRun(cls: string, seed: number, daily: string | null): Run {
+export function newRun(cls: string, seed: number, daily: string | null, len: RunLen = 'short'): Run {
   const c = CLASSES[cls];
   return {
     v: 1, seed, daily, cls, hp: c.hp, maxHp: c.hp, gold: 20,
     spells: c.spells.map((id) => ({ id, lvl: 1 })),
     relics: [],
-    map: genMap(hash(seed, 'map')),
+    map: genMap(hash(seed, 'map'), len),
     pos: -1, visited: [], stage: null, battle: null, bought: [],
     stats: { kills: 0, maxCombo: 0, turns: 0, gems: 0, start: Date.now() },
   };

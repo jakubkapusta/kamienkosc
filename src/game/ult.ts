@@ -1,3 +1,5 @@
+import { COIN } from '../core/types';
+import { BOMB } from './board';
 import type { Fighter } from './fighter';
 import type { SpellCtx } from './spells';
 
@@ -35,6 +37,42 @@ export const ULTS: Record<string, UltDef> = {
     cast: async (c) => {
       for (let k = 0; k < 4; k++) await c.drain(99, true, k);
       await c.damage(6, 'bolt');
+    },
+  },
+  plumber: {
+    name: 'Pion do wymiany',
+    desc: 'Wstawia 3 bomby i odpala wszystkie kamienie specjalne na planszy. Zbierasz wszystko, co wyleci. Nie kończy tury.',
+    cast: async (c) => {
+      await c.special(c.pick(3, (_, i) => !c.board.g[i]!.sp), BOMB);
+      await c.destroy(c.cells((_, i) => !!c.board.g[i]!.sp), 'ice');
+    },
+  },
+  trader: {
+    name: 'Wyprzedaż',
+    desc: 'Zbiera wszystkie monety z planszy: każda daje złotówkę i zadaje 2 obrażenia. Nie kończy tury.',
+    cast: async (c) => {
+      const coins = c.cells((t) => t === COIN);
+      await c.destroy(coins, 'ice');
+      // the first point per coin comes from her perk when they are collected
+      await c.damage(coins.length * (c.me.coinHit ? 1 : 2), 'bolt');
+    },
+  },
+  dres: {
+    name: 'Wjazd na chatę',
+    desc: 'Przez 3 tury każde dopasowanie czaszek daje dodatkową turę. Nie kończy tury.',
+    cast: async (c) => {
+      c.me.rush = 3;
+      await c.announce('Wjazd na chatę!', 'czaszki dają dodatkowe tury');
+    },
+  },
+  seer: {
+    name: 'Koło fortuny',
+    desc: 'Losuje supermoc jednego z pozostałych bohaterów. Kapsli trzeba tylko 5. Nie kończy tury.',
+    cast: async (c) => {
+      const ids = Object.keys(ULTS).filter((id) => id !== 'seer');
+      const u = ULTS[ids[c.rng.int(0, ids.length - 1)]];
+      await c.announce(u.name, 'wylosowało koło fortuny');
+      await u.cast(c);
     },
   },
 };

@@ -1,5 +1,5 @@
 import { sfx } from '../core/audio';
-import { ELEM_COLOR } from '../core/types';
+import { COIN, ELEM_COLOR } from '../core/types';
 import { gemArt } from '../gfx/gems';
 import { RELICS } from '../game/content';
 import type { SpellInst } from '../game/fighter';
@@ -13,19 +13,20 @@ export function el<T extends HTMLElement = HTMLElement>(html: string): T {
 
 export const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-export function costHTML(cost: number[], hp?: number) {
+export function costHTML(cost: number[], hp?: number, gold?: number) {
   const parts = cost
     .map((n, c) => (n > 0 ? `<span class="cost"><img src="${gemArt.icon(c)}" alt=""><b>${n}</b></span>` : ''))
     .join('');
   const h = hp ? `<span class="cost hp"><i class="heart"></i><b>${hp}</b></span>` : '';
-  return parts + h || '<span class="cost free">za darmo</span>';
+  const g = gold ? `<span class="cost"><img src="${gemArt.icon(COIN)}" alt=""><b>${gold} zł</b></span>` : '';
+  return parts + h + g || '<span class="cost free">za darmo</span>';
 }
 
 export function spellHTML(inst: SpellInst, extra = '') {
   const d = SPELLS[inst.id];
   return `<div class="spell" style="--el:${ELEM_COLOR[d.elem]}">
     <div class="spell-head"><span class="spell-name">${esc(d.name)}${inst.lvl > 1 ? '<em>+</em>' : ''}</span>${d.quick ? '<span class="tag">szybki</span>' : ''}</div>
-    <div class="spell-cost">${costHTML(d.cost, d.hp)}</div>
+    <div class="spell-cost">${costHTML(d.cost, d.hp, d.gold?.(0))}</div>
     <p>${esc(d.desc(inst.lvl))}</p>${extra}
   </div>`;
 }

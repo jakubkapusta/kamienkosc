@@ -226,6 +226,38 @@ h3 { font-size: 19px; color: var(--gold); margin-top: 4px; }
 }
 .btn.danger { --en: #b3202a; --en-d: #5a0a10; }
 
+/* run length: two paper transit tickets, the chosen one gets punched */
+.len-pick { display: flex; gap: 10px; margin: 2px 0 14px; }
+.len-ticket {
+  --stripe: #e8763a;
+  appearance: none; cursor: pointer; position: relative; flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  padding: 10px 30px 10px 14px; border: 0; border-radius: 3px; color: #2b1d14;
+  background:
+    linear-gradient(90deg, var(--stripe) 0 6px, transparent 6px),
+    repeating-linear-gradient(135deg, rgba(120, 90, 50, 0.06) 0 3px, transparent 3px 7px),
+    linear-gradient(180deg, #fbf4dc, #ecdfb8);
+  box-shadow: 0 2px 0 rgba(90, 60, 30, 0.35), 0 6px 12px rgba(0, 0, 0, 0.3);
+  transform: rotate(-1deg); opacity: 0.72; filter: saturate(0.7);
+  transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.len-ticket + .len-ticket { --stripe: #3a9a5a; transform: rotate(1.2deg); }
+.len-ticket.on { opacity: 1; filter: none; transform: rotate(0deg) translateY(-2px); }
+.len-ticket .lt-kind { font: 700 9px/1 var(--body); letter-spacing: 0.18em; text-transform: uppercase; color: rgba(90, 60, 30, 0.6); }
+.len-ticket strong { font: 400 17px/1.1 var(--display); white-space: nowrap; }
+.len-ticket::after { content: ''; position: absolute; right: 22px; top: 6px; bottom: 6px; border-left: 1.5px dashed rgba(90, 60, 30, 0.3); }
+.len-ticket small { font: 600 12px/1.25 var(--body); color: #6e5840; }
+.len-ticket .lt-punch {
+  /* the validator prints along the edge */
+  position: absolute; right: 3px; top: 6px; bottom: 6px; width: 17px;
+  display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-rl; transform: rotate(180deg) translateX(3px);
+  font: 700 10px/1 'Courier Prime', monospace; letter-spacing: 0.06em; color: #6a2a9a; white-space: nowrap;
+  opacity: 0; transition: opacity 0.1s ease, transform 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.len-ticket.on .lt-punch { opacity: 0.85; transform: rotate(180deg); }
+.len-ticket:active { transform: translateY(1px); }
+
 /* hand-written "back" link */
 .btn.ghost {
   -webkit-mask: none; mask: none; background: none; box-shadow: none;

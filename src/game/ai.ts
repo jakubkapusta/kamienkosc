@@ -3,13 +3,13 @@ import { CAP, COIN, SKULL } from '../core/types';
 import { BAL } from './balance';
 import { Board, findGroups } from './board';
 import type { Fighter, SpellInst } from './fighter';
-import { affordable, SPELLS } from './spells';
+import { affordable, costOf, SPELLS } from './spells';
 
 function needs(f: Fighter): number[] {
   const n = [0, 0, 0, 0];
   for (const s of f.spells) {
-    const d = SPELLS[s.id];
-    for (let c = 0; c < 4; c++) if (d.cost[c] > f.mana[c]) n[c] += 1;
+    const cost = costOf(f, SPELLS[s.id]);
+    for (let c = 0; c < 4; c++) if (cost[c] > f.mana[c]) n[c] += 1;
   }
   return n;
 }
@@ -42,9 +42,10 @@ export function chooseMove(b: Board, me: Fighter, foe: Fighter, rng: RNG, skill:
       s += counts[k] * (need[k] ? 1.5 : full ? 0.1 : 0.5);
       s += counts[k] * foeNeed[k] * 0.3 * skill;
     }
-    s += counts[COIN] * 0.3;
-    s += counts[CAP] * (me.isPlayer ? (me.caps < BAL.capsNeeded ? 1.3 : 0.1) : 0.35 * skill);
-    if (maxLen >= 4) s += 3 + 9 * skill;
+    s += counts[COIN] * (0.3 + me.coinHit * 1.7);
+    s += counts[CAP] * (me.isPlayer ? (me.caps < me.capsNeeded ? 1.3 * (BAL.capsNeeded / me.capsNeeded) : 0.1) : 0.35 * skill);
+    if (maxLen >= 4) s += 3 + 9 * skill + (me.expMana ? 4 : 0);
+    if (me.rush > 0 && counts[SKULL]) s += 3 + 9 * skill;
     if (cells >= 5) s += 2;
     s += rng.next() * (1 - skill) * 9;
     if (s > bs) {

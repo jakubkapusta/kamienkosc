@@ -1,9 +1,11 @@
-import { RNG } from '../core/rng';
+import { hash, RNG } from '../core/rng';
 import { AIR, DARK, EARTH, ELEM_COLOR, FIRE, WATER } from '../core/types';
 import { mixHex } from '../gfx/color';
 import type { Look } from '../gfx/portrait';
 import type { SpellInst } from './fighter';
-import { BAL } from './balance';
+import { BAL, skullFor } from './balance';
+import { diffOf, type MapNode } from './map';
+import { rngFor, type Run } from './run';
 import { ENEMY_POOL, SPELLS } from './spells';
 
 export type Tier = 'normal' | 'elite' | 'boss';
@@ -71,16 +73,22 @@ export const TRAIT_DESC: Record<string, string> = {
 
 const NAMES = ['Mietek', 'Zdzichu', 'Heniek', 'Rysiek', 'Waldek', 'Józek', 'Staszek', 'Kaziu', 'Zbyszek', 'Janusz', 'Bogdan', 'Czesiek', 'Edek', 'Leszek', 'Tadek', 'Wiesiek', 'Grzesiek', 'Marian'];
 
-export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
+/**
+ * `floor` is the difficulty from diffOf(): the map row in short runs, fractional and above 7 late in long runs.
+ * `boss` forces a boss (index into BOSSES) so a long run doesn't meet the same one twice.
+ */
+export function genEnemy(seed: number, floor: number, tier: Tier, boss?: number): EnemySpec {
   const rng = new RNG(seed);
   if (tier === 'boss') {
-    const b = rng.pick(BOSSES);
+    const picked = rng.pick(BOSSES);
+    const b = boss === undefined ? picked : BOSSES[boss % BOSSES.length];
+    const grow = Math.max(0.6, 1 + (floor - 7) * BAL.bossGrow);
     const elem = rng.pick(b.elems);
     const look: Look = { art: b.art, pal: { skin: b.skin, acc: b.acc, eye: mixHex(ELEM_COLOR[elem], '#ffffff', 0.3) }, aura: ELEM_COLOR[elem], seed: rng.int(1, 999), crown: b.crown };
     const pool = [...ENEMY_POOL[elem], ...ENEMY_POOL[DARK]].filter((v, i, a) => a.indexOf(v) === i);
     rng.shuffle(pool);
     return {
-      name: b.name, title: b.title, elem, hp: Math.round(b.hp * BAL.bossHp), skull: BAL.bossSkull, pow: BAL.bossPow,
+      name: b.name, title: b.title, elem, hp: Math.round(b.hp * BAL.bossHp * grow), skull: Math.max(1.5, BAL.bossSkull + (floor - 7) * BAL.skullGrow), pow: BAL.bossPow * grow,
       spells: pool.slice(0, 3).map((id) => ({ id, lvl: 2 })), look, tier, traits: [], startMana: 4, shield: 0, skill: BAL.bossSkill,
     };
   }
@@ -107,11 +115,19 @@ export function genEnemy(seed: number, floor: number, tier: Tier): EnemySpec {
   return {
     name: rng.pick(NAMES),
     title: `${tr ? tr + ' ' : ''}${a.title} ${rng.pick(a.places)}`,
-    elem, hp, skull: BAL.skullAt[Math.min(7, floor)] + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
+    elem, hp, skull: skullFor(floor) + (traits.includes('furious') ? 1 : 0) + (tier === 'elite' && floor <= 1 ? 1 : 0),
     pow: BAL.powBase + floor * BAL.powFloor + (tier === 'elite' ? BAL.elitePow : 0),
     spells, look, tier, traits,
     startMana: traits.includes('mystic') ? 6 : 0,
     shield: traits.includes('armored') ? 10 + floor * 2 : 0,
     skill: Math.min(0.9, 0.35 + floor * 0.08 + (tier === 'elite' ? 0.2 : 0)),
   };
+}
+
+/** The enemy waiting at a map node (events that turn into a fight count one row later). */
+export function enemyFor(run: Run, n: MapNode, tier: Tier): EnemySpec {
+  const floor = diffOf(run.map, n.row + (n.type === 'event' ? 1 : 0));
+  let boss: number | undefined;
+  if (tier === 'boss' && run.map.mid !== undefined) boss = rngFor(run, 'bosses').shuffle([...BOSSES.keys()])[n.row === run.map.mid ? 0 : 1];
+  return genEnemy(hash(run.seed, 'enemy', n.id, n.type), floor, tier, boss);
 }

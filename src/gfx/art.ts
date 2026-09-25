@@ -201,6 +201,187 @@ ${eye(116, 92, 6.4, 5.4, b, { lid: 0.3, dx: 2, skin: p.skin })}
 <path d="M154 50 L142 72 L151 72 L140 94 L162 64 L152 64 L160 50 Z" fill="#ffe14a" ${S2}/>`,
 };
 
+const hand = (x: number, y: number) =>
+  `<path d="M${x - 13} ${y + 8} C${x - 18} ${y - 4} ${x - 10} ${y - 13} ${x + 1} ${y - 13} C${x + 14} ${y - 13} ${x + 18} ${y - 2} ${x + 14} ${y + 9} C${x + 10} ${y + 18} ${x - 8} ${y + 18} ${x - 13} ${y + 8} Z" fill="url(#sk)" ${S}/>
+<path d="M${x - 8} ${y - 4} C${x - 2} ${y - 6} ${x + 6} ${y - 6} ${x + 10} ${y - 3} M${x - 9} ${y + 3} C${x - 2} ${y + 1} ${x + 6} ${y + 1} ${x + 11} ${y + 4}" fill="none" ${S2}/>`;
+
+const sparkle = (x: number, y: number, r: number, c = '#ffd86a') =>
+  `<path d="M${x} ${y - r} L${x + r * 0.3} ${y - r * 0.3} L${x + r} ${y} L${x + r * 0.3} ${y + r * 0.3} L${x} ${y + r} L${x - r * 0.3} ${y + r * 0.3} L${x - r} ${y} L${x - r * 0.3} ${y - r * 0.3} Z" fill="${c}"/>`;
+
+const hydraulik: ArtDef = {
+  draw: (p, b) => `
+<path d="${SHOULDERS}" fill="#b8352c" ${S}/>
+<path d="M36 164 L20 204 M52 156 L34 204 M148 156 L166 204 M164 164 L180 204" stroke="#2a1a18" stroke-width="3.2" opacity=".35"/>
+<path d="M22 180 L66 170 M16 196 L64 188 M134 170 L178 180 M136 188 L184 196" stroke="#2a1a18" stroke-width="2.6" opacity=".3"/>
+<path d="M84 124 L116 124 L118 150 C108 156 92 156 82 150 Z" fill="url(#sk)" ${S}/>
+${shade('M84 132 C92 138 108 138 116 132 L117 144 C106 148 94 148 83 144 Z', 0.22)}
+<path d="M78 144 L100 162 L122 144 L128 152 L100 170 L72 152 Z" fill="#c8483a" ${S2}/>
+<path d="M66 204 L69 166 L131 166 L134 204 Z" fill="url(#ac)" ${S}/>
+<path d="M73 172 L127 172" stroke="#fff" stroke-width="1.2" stroke-dasharray="3 3" opacity=".45"/>
+<path d="M70 168 L54 148 M130 168 L146 148" stroke="${O}" stroke-width="10" stroke-linecap="round"/>
+<path d="M70 168 L54 148 M130 168 L146 148" stroke="${p.acc}" stroke-width="6.4" stroke-linecap="round"/>
+<circle cx="72" cy="170" r="4.2" fill="url(#gold)" ${S2}/><circle cx="128" cy="170" r="4.2" fill="url(#gold)" ${S2}/>
+<rect x="89" y="160" width="4.4" height="22" rx="1" fill="#f2c84a" ${S2} transform="rotate(-10 91 171)"/>
+<path d="M88.6 160.6 L91 154 L93.4 160.2 Z" fill="#f4dcb0" ${S2} transform="rotate(-10 91 171)"/>
+<rect x="97" y="158" width="7" height="24" rx="1" fill="url(#steel)" ${S2} transform="rotate(6 100 170)"/>
+<path d="M86 178 L116 178 L115 196 L87 196 Z" fill="${p.acD}" ${S2}/>
+<path d="M86 184 L116 184" stroke="${O}" stroke-width="1" opacity=".4"/>
+<path d="M62 94 C48 88 46 114 62 114 Z" fill="url(#sk)" ${S}/>
+<path d="M138 94 C152 88 154 114 138 114 Z" fill="url(#sk)" ${S}/>
+<path d="M100 46 C128 46 142 66 142 96 C142 126 124 142 100 142 C76 142 58 126 58 96 C58 66 72 46 100 46 Z" fill="url(#sk)" ${S}/>
+<path d="M66 112 C72 132 88 142 100 142 C112 142 128 132 134 112 C126 126 112 132 100 132 C88 132 74 126 66 112 Z" fill="${p.hair}" opacity=".3"/>
+${[[76, 128], [84, 134], [94, 137], [106, 137], [116, 134], [124, 128], [72, 120], [128, 120]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".9" fill="${O}" opacity=".45"/>`).join('')}
+<path d="M60 84 C58 54 78 38 100 38 C122 38 142 54 140 84 C124 76 76 76 60 84 Z" fill="#d8402c" ${S}/>
+<path d="M100 38 L100 78 M80 43 L84 78 M120 43 L116 78" fill="none" stroke="${O}" stroke-width="1.2" opacity=".35"/>
+${hi('M70 64 C74 50 86 43 98 42 C88 48 80 56 76 68 Z', 0.3)}
+<circle cx="100" cy="39" r="3.4" fill="#b02a20" ${S2}/>
+<path d="M56 84 C80 73 124 73 148 82 C156 86 152 94 142 93 C122 87 80 87 62 92 C53 92 50 86 56 84 Z" fill="#b02a20" ${S}/>
+<circle cx="100" cy="62" r="9.4" fill="#fffaf0" ${S2}/>
+<path d="M100 54.5 C104 60 106 63 106 65.5 C106 69 103.4 71 100 71 C96.6 71 94 69 94 65.5 C94 63 96 60 100 54.5 Z" fill="#3a8ae8" ${S2}/>
+<path d="M73 97 C79 92 90 92 95 96 L94 99 C88 96 80 96 75 100 Z" fill="${p.hair}" ${S2}/>
+<path d="M127 97 C121 92 110 92 105 96 L106 99 C112 96 120 96 125 100 Z" fill="${p.hair}" ${S2}/>
+${eye(85, 104, 6, 5, b, { dx: -1 })}
+${eye(115, 104, 6, 5, b, { dx: -1 })}
+<ellipse cx="72" cy="116" rx="8" ry="5.4" fill="#ff4a4a" opacity=".26"/><ellipse cx="128" cy="116" rx="8" ry="5.4" fill="#ff4a4a" opacity=".26"/>
+<path d="M100 100 C91 100 89 114 94 119 C97 122 103 122 106 119 C111 114 109 100 100 100 Z" fill="#e0907a" ${S2}/>
+<ellipse cx="97" cy="107" rx="2.6" ry="3.4" fill="#fff" opacity=".5"/>
+<path d="M72 128 C78 115 93 115 100 121 C107 115 122 115 128 128 C122 134 111 133 105 128 C102 126 98 126 95 128 C89 133 78 134 72 128 Z" fill="${p.hair}" ${S}/>
+<path d="M80 124 C86 120 92 120 96 123 M104 123 C108 120 114 120 120 124" fill="none" stroke="#fff" stroke-width="1.2" opacity=".3"/>
+<path d="M91 135 C96 138 104 138 109 135" fill="none" ${S2}/>
+<path d="M148 64 C152 70 153 73 153 75 C153 78 151 80 148 80 C145 80 143 78 143 75 C143 73 144 70 148 64 Z" fill="#9fd8ff" ${S2}/>
+<path d="M152 204 L166 124" stroke="${O}" stroke-width="12" stroke-linecap="round"/>
+<path d="M152 204 L166 124" stroke="url(#steel)" stroke-width="7.6" stroke-linecap="round"/>
+<path d="M156 186 L159 170 M158 176 L161 160" stroke="#fff" stroke-width="1" opacity=".4"/>
+<path d="M156 128 C150 114 156 100 168 96 L174 106 L164 110 L166 118 L178 114 L184 124 C180 136 164 140 156 128 Z" fill="url(#steel)" ${S}/>
+<path d="M160 124 C164 128 172 128 176 124" fill="none" stroke="${O}" stroke-width="1.2" opacity=".5"/>
+${hand(160, 150)}`,
+};
+
+const bazarowa: ArtDef = {
+  draw: (p, b) => {
+    const spots = [[28, 186], [44, 170], [58, 188], [40, 200], [142, 170], [158, 186], [172, 198], [148, 198], [130, 188], [66, 172], [24, 200], [176, 184]]
+      .map(([x, y]) => `<path d="M${x - 4} ${y} C${x - 4} ${y - 4} ${x + 4} ${y - 5} ${x + 5} ${y - 1} C${x + 6} ${y + 3} ${x - 1} ${y + 5} ${x - 4} ${y}" fill="none" stroke="#5a3414" stroke-width="2"/><circle cx="${x}" cy="${y}" r="1.4" fill="#5a3414"/>`)
+      .join('');
+    const poof = [[64, 76, 18], [78, 54, 19], [100, 46, 21], [122, 54, 19], [136, 76, 18], [60, 102, 15], [140, 102, 15], [66, 124, 12], [134, 124, 12]]
+      .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${p.hair}" ${S}/>`)
+      .join('');
+    const curls = [[72, 70], [85, 62], [100, 59], [115, 62], [128, 70]]
+      .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8.4" fill="${p.hair}" ${S2}/><path d="M${x - 3} ${y - 3} C${x} ${y - 5} ${x + 3} ${y - 4} ${x + 4} ${y - 1}" fill="none" stroke="#fff" stroke-width="1.2" opacity=".4"/>`)
+      .join('');
+    const hoop = (x: number) => `<circle cx="${x}" cy="120" r="7.4" fill="none" stroke="${O}" stroke-width="4.8"/><circle cx="${x}" cy="120" r="7.4" fill="none" stroke="url(#gold)" stroke-width="2.6"/>`;
+    return `
+<path d="${SHOULDERS}" fill="#e2a64a" ${S}/>
+${spots}
+<path d="M80 146 L100 172 L120 146 Z" fill="url(#sk)" ${S2}/>
+<path d="M86 124 L114 124 L116 148 C108 152 92 152 84 148 Z" fill="url(#sk)" ${S}/>
+<path d="M82 146 C88 164 112 164 118 146" fill="none" stroke="${O}" stroke-width="5"/>
+<path d="M82 146 C88 164 112 164 118 146" fill="none" stroke="url(#gold)" stroke-width="3" stroke-dasharray="3 1.4"/>
+<path d="M100 160 C97 156 93 158 94 162 C95 165 100 168 100 168 C100 168 105 165 106 162 C107 158 103 156 100 160 Z" fill="url(#gold)" ${S2}/>
+${poof}
+<path d="M100 56 C124 56 136 74 136 100 C136 126 120 140 100 140 C80 140 64 126 64 100 C64 74 76 56 100 56 Z" fill="url(#sk)" ${S}/>
+${shade('M66 110 C72 130 86 140 100 140 C114 140 128 130 134 110 C126 124 114 131 100 131 C86 131 74 124 66 110 Z', 0.12)}
+${curls}
+<path d="M77 88 C83 81 91 81 95 85 M123 88 C117 81 109 81 105 85" fill="none" stroke="${O}" stroke-width="2"/>
+<ellipse cx="86" cy="96" rx="9.4" ry="6.4" fill="#3aa0ff" opacity=".45"/><ellipse cx="114" cy="96" rx="9.4" ry="6.4" fill="#3aa0ff" opacity=".45"/>
+${eye(86, 99, 5.8, 4.8, b, { lid: 0.3, skin: '#8fc8f0', dx: 1 })}
+${eye(114, 99, 5.8, 4.8, b, { lid: 0.3, skin: '#8fc8f0', dx: 1 })}
+${b ? '' : `<path d="M80 96 L76 92 M84 94 L82 90 M89 94 L89 90 M120 96 L124 92 M116 94 L118 90 M111 94 L111 90" stroke="${O}" stroke-width="1.4" stroke-linecap="round"/>`}
+<path d="M100 102 C98 110 96 114 99 116 C101 117 103 116 104 114" fill="none" ${S2}/>
+<ellipse cx="76" cy="112" rx="8" ry="5" fill="#ff4a7a" opacity=".32"/><ellipse cx="124" cy="112" rx="8" ry="5" fill="#ff4a7a" opacity=".32"/>
+<path d="M88 124 C92 120 97 121 100 123 C103 121 108 120 112 124 C108 131 92 131 88 124 Z" fill="#d8203c" ${S2}/>
+<path d="M92 123.5 C96 125 104 125 108 123.5" fill="none" stroke="#7a0a1c" stroke-width="1"/>
+${hi('M93 122 C96 121 98 122 99 123 C96 124 94 124 93 122 Z', 0.5)}
+<circle cx="115" cy="118" r="1.7" fill="#3a1a14"/>
+${hoop(64)}${hoop(136)}
+<path d="M150 154 C120 170 84 184 58 196" fill="none" stroke="${O}" stroke-width="8" stroke-linecap="round"/>
+<path d="M150 154 C120 170 84 184 58 196" fill="none" stroke="#2a2a34" stroke-width="4.4" stroke-linecap="round"/>
+<rect x="34" y="158" width="26" height="14" fill="#8ad08a" ${S2} transform="rotate(-16 47 165)"/>
+<rect x="44" y="160" width="26" height="14" fill="#f2a0c0" ${S2} transform="rotate(8 57 167)"/>
+<path d="M20 186 C20 178 28 172 38 172 L72 172 C82 172 88 178 88 188 L88 204 L20 204 Z" fill="url(#ac)" ${S}/>
+<path d="M26 182 L82 182" stroke="${O}" stroke-width="1.4" stroke-dasharray="2 2"/>
+<rect x="76" y="178" width="5" height="8" rx="1" fill="url(#steel)" ${S2}/>
+${[['#a0c4f2', -26], ['#f2a0c0', -8], ['#8ad08a', 10]].map(([c, a]) => `<rect x="150" y="110" width="20" height="34" rx="1.5" fill="${c}" ${S2} transform="rotate(${a} 160 146)"/><circle cx="160" cy="124" r="4" fill="none" stroke="${O}" stroke-width=".9" opacity=".45" transform="rotate(${a} 160 146)"/>`).join('')}
+${hand(160, 152)}`;
+  },
+};
+
+const dres: ArtDef = {
+  draw: (p, b) => `
+<path d="${SHOULDERS}" fill="#26262e" ${S}/>
+<path d="M46 157 C32 168 22 184 18 204 M53 154 C39 167 29 186 26 204 M60 151 C47 166 37 186 34 204" fill="none" stroke="#f4f4f4" stroke-width="2.8" stroke-linecap="round"/>
+<path d="M154 157 C168 168 178 184 182 204 M147 154 C161 167 171 186 174 204 M140 151 C153 166 163 186 166 204" fill="none" stroke="#f4f4f4" stroke-width="2.8" stroke-linecap="round"/>
+<path d="M80 122 L120 122 L122 150 C110 156 90 156 78 150 Z" fill="url(#sk)" ${S}/>
+${shade('M80 132 C90 140 110 140 120 132 L121 144 C108 150 92 150 79 144 Z', 0.24)}
+<path d="M74 150 L80 132 L100 154 L120 132 L126 150 L114 158 L100 152 L86 158 Z" fill="#26262e" ${S}/>
+<path d="M82 146 C86 176 114 176 118 146" fill="none" stroke="${O}" stroke-width="7.6"/>
+<path d="M82 146 C86 176 114 176 118 146" fill="none" stroke="url(#gold)" stroke-width="5" stroke-dasharray="4 2"/>
+<path d="M100 158 L100 204" stroke="${O}" stroke-width="2.4"/><path d="M97 176 L103 176 L103 186 L97 186 Z" fill="url(#steel)" ${S2}/>
+<path d="M62 90 C47 84 46 112 64 110 Z" fill="url(#sk)" ${S}/>
+<path d="M138 90 C153 84 154 112 136 110 Z" fill="url(#sk)" ${S}/>
+<path d="M66 76 C66 54 82 42 100 42 C118 42 134 54 134 76 L134 104 C134 125 120 138 100 138 C80 138 66 125 66 104 Z" fill="url(#sk)" ${S}/>
+<path d="M68 80 C66 58 82 46 100 46 C118 46 134 58 132 80 C122 70 78 70 68 80 Z" fill="${p.hair}" opacity=".38"/>
+${hi('M78 58 C84 50 94 47 102 47 C92 52 86 56 82 62 Z', 0.3)}
+<path d="M112 56 L125 70" stroke="#c8606a" stroke-width="2.6" stroke-linecap="round"/>
+<path d="M114 62 L118 58 M117 65 L121 61 M120 68 L124 64" stroke="#8a3a44" stroke-width="1.2"/>
+<path d="M68 106 C70 126 84 138 100 138 C116 138 130 126 132 106 C126 120 114 128 100 128 C86 128 74 120 68 106 Z" fill="${p.hair}" opacity=".3"/>
+<path d="M73 85 L95 92 L94 97 L72 90 Z" fill="${p.hair}" ${S2}/>
+<path d="M127 85 L105 92 L106 97 L128 90 Z" fill="${p.hair}" ${S2}/>
+${eye(85, 99, 5.8, 4, b, { lid: 0.5, skin: p.skin, dx: 1.5 })}
+${eye(115, 99, 5.8, 4, b, { lid: 0.5, skin: p.skin, dx: 1.5 })}
+<path d="M100 96 C98 102 97 104 99 106 C96 108 94 111 98 113 C101 114 105 113 105 109" fill="none" ${S2}/>
+<path d="M88 123 C96 127 106 125 112 118" fill="none" ${S}/>
+<ellipse cx="115" cy="118" rx="3.4" ry="1.8" fill="#2a2a2a" ${S2} transform="rotate(-30 115 118)"/>
+<path d="M113.6 117.6 L116.6 118.4" stroke="#fff" stroke-width=".9" transform="rotate(-30 115 118)"/>
+<path d="M156 204 L162 158" stroke="${O}" stroke-width="18" stroke-linecap="round"/>
+<path d="M156 204 L162 158" stroke="#26262e" stroke-width="14" stroke-linecap="round"/>
+<path d="M152 202 L157 164 M160 204 L165 162" stroke="#f4f4f4" stroke-width="2.2"/>
+<path d="M144 144 C138 128 148 116 163 116 C178 116 185 128 180 144 C176 156 150 158 144 144 Z" fill="url(#sk)" ${S}/>
+<path d="M149 130 C155 126 171 126 178 131 M148 138 C156 135 171 135 179 139" fill="none" ${S2}/>
+<path d="M152 122 L152 131 M160 119 L160 129 M168 119 L168 129 M175 122 L175 131" stroke="${O}" stroke-width="1.4"/>
+<path d="M150 124 L176 124 L176 128 L150 128 Z" fill="#f4efe2" opacity=".85"/>`,
+};
+
+const wrozka: ArtDef = {
+  draw: (p, b) => {
+    const stars = [[30, 184], [52, 168], [44, 198], [150, 168], [168, 186], [160, 200], [66, 194], [138, 194]].map(([x, y]) => sparkle(x, y, 4.4)).join('');
+    const coins = [72, 80, 88, 96, 104, 112, 120, 128].map((x, i) => `<path d="M${x} 82 L${x} ${86 + (i % 2) * 2}" stroke="#8a5a12" stroke-width="1"/><circle cx="${x}" cy="${88 + (i % 2) * 2}" r="3" fill="url(#gold)" ${S2}/>`).join('');
+    const moon = (x: number, flip: number) => `<path d="M${x} 116 C${x - 7 * flip} 118 ${x - 8 * flip} 128 ${x} 132 C${x - 3 * flip} 126 ${x - 3 * flip} 120 ${x} 116 Z" fill="url(#gold)" ${S2}/>`;
+    const ball = mixHex(p.eye, '#1a0a30', 0.45);
+    return `
+<path d="${SHOULDERS}" fill="#3a1a5a" ${S}/>
+${stars}
+<path d="M86 126 L114 126 L116 150 C108 154 92 154 84 150 Z" fill="url(#sk)" ${S}/>
+${[[84, 148, '#e0243c'], [90, 154, '#ffd23f'], [96, 157, '#2e7bff'], [104, 157, '#3ac88a'], [110, 154, '#ffd23f'], [116, 148, '#e0243c']].map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="3.2" fill="${c}" ${S2}/>`).join('')}
+<path d="M56 96 C50 50 76 28 100 28 C124 28 150 50 144 96 Z" fill="url(#ac)" ${S}/>
+<path d="M68 80 C60 100 62 120 72 132 C70 114 70 100 74 86 Z M132 80 C140 100 138 120 128 132 C130 114 130 100 126 86 Z" fill="${p.hair}" ${S2}/>
+<path d="M100 58 C122 58 134 76 134 100 C134 124 120 140 100 140 C80 140 66 124 66 100 C66 76 78 58 100 58 Z" fill="url(#sk)" ${S}/>
+${shade('M68 110 C74 130 86 140 100 140 C114 140 126 130 132 110 C124 124 112 131 100 131 C88 131 76 124 68 110 Z', 0.12)}
+<path d="M60 82 C74 60 126 60 140 82 C138 90 128 86 100 84 C72 86 62 90 60 82 Z" fill="url(#ac)" ${S}/>
+<path d="M70 70 C84 62 116 62 130 70 M66 78 C82 70 118 70 134 78" fill="none" stroke="${O}" stroke-width="1.2" opacity=".35"/>
+${coins}
+<circle cx="100" cy="68" r="7.6" fill="url(#gold)" ${S2}/><circle cx="100" cy="68" r="4.6" fill="${p.eye}" ${S2}/>
+${hi('M98 65 C99 64 101 64 102 65 C101 66 99 66 98 65 Z', 0.8)}
+<path d="M77 92 C83 86 91 86 95 90 M123 92 C117 86 109 86 105 90" fill="none" stroke="${O}" stroke-width="2"/>
+<ellipse cx="86" cy="99" rx="9" ry="6" fill="#9a3ad8" opacity=".45"/><ellipse cx="114" cy="99" rx="9" ry="6" fill="#9a3ad8" opacity=".45"/>
+${eye(86, 102, 5.8, 4.6, b, { lid: 0.46, skin: '#b870e0', iris: p.eye, pr: 2.2 })}
+${eye(114, 102, 5.8, 4.6, b, { lid: 0.46, skin: '#b870e0', iris: p.eye, pr: 2.2 })}
+<path d="M80 102 L74 98 M120 102 L126 98" stroke="${O}" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M100 104 C98 112 96 116 99 118 C101 119 103 118 104 116" fill="none" ${S2}/>
+<path d="M90 126 C94 123 98 124 100 125 C102 124 106 123 110 126 C106 131 94 131 90 126 Z" fill="#8a2a5a" ${S2}/>
+<circle cx="111" cy="116" r="1.7" fill="#3a1a14"/>
+${moon(66, 1)}${moon(134, -1)}
+<path d="M78 204 L84 196 L116 196 L122 204 Z" fill="url(#gold)" ${S}/>
+<circle cx="100" cy="176" r="23" fill="${ball}" ${S}/>
+<circle cx="100" cy="176" r="21" fill="url(#glw)" opacity=".75"/>
+<path d="M88 180 C92 172 102 184 110 174 C106 186 94 186 88 180 Z" fill="#fff" opacity=".4"/>
+${hi('M86 166 C90 160 96 158 100 158 C94 162 90 166 88 170 Z', 0.7)}
+<path d="M66 196 C58 186 64 172 76 172 C84 172 88 180 84 192 C80 200 70 202 66 196 Z" fill="url(#sk)" ${S}/>
+<path d="M134 196 C142 186 136 172 124 172 C116 172 112 180 116 192 C120 200 130 202 134 196 Z" fill="url(#sk)" ${S}/>
+<path d="M70 180 L80 178 M130 180 L120 178" stroke="url(#gold)" stroke-width="3"/>
+${sparkle(146, 150, 5, '#fff')}${sparkle(56, 150, 3.4, '#fff')}`;
+  },
+};
+
 // ---------- enemies ----------
 const imp: ArtDef = {
   draw: (p, b) => `
@@ -576,7 +757,7 @@ ${[64, 88, 112, 136].map((x) => `<path d="M${x} 82 L${x} 56" stroke="${O}" strok
 };
 
 export const ART: Record<string, ArtDef> = {
-  grill, babcia, kombinator,
+  grill, babcia, kombinator, hydraulik, bazarowa, dres, wrozka,
   imp, drowner, skeleton, ghost, salesman, golem, dragon, troll, goblin,
   clerk, tesciowa, palace,
 };

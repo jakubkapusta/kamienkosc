@@ -6,9 +6,9 @@ import { artSVG, svgURL } from './gfx/art';
 import { portraitURL } from './gfx/portrait';
 import { CLASSES, MODS, RELICS } from './game/content';
 import { BAL } from './game/balance';
-import { genEnemy, type Tier } from './game/enemies';
+import { enemyFor, type Tier } from './game/enemies';
 import { EVENTS } from './game/events';
-import type { MapNode } from './game/map';
+import { isFinalBoss, LENGTHS, type MapNode, type RunLen } from './game/map';
 import {
   addRelic, floorOf, has, loadMeta, loadRun, newRun, randomRelics, rngFor, saveMeta, saveRun, score, todayKey,
   type Run, type Step,
@@ -21,7 +21,11 @@ import { MenuScene } from './scenes/menu';
 import { el, esc, overlay, relicHTML, spellHTML, toast } from './ui/dom';
 
 const portraitOf = (cls: string) => portraitURL(CLASSES[cls].look);
-const SIGNATURES: Record<string, string> = { pyro: 'Wujek Staszek', druid: 'B. Zielińska', storm: 'Kombi' };
+const SIGNATURES: Record<string, string> = {
+  pyro: 'Wujek Staszek', druid: 'B. Zielińska', storm: 'Kombi', plumber: 'M. Kran', trader: 'J. Kowalczyk', dres: 'Seba', seer: 'Bożena ✶',
+};
+
+const LEN_KEY = 'kamienkosc.len';
 
 const SHOPS: Record<string, { where: string; who: string; greet: string; potion: string; potionNote: string; upgrade: string; bye: string }> = {
   ropuszka: {
@@ -72,7 +76,7 @@ export class Game {
           <p class="tagline">Tłucz diabliki z działek i urzędników z zaświatów. Każda wyprawa jest inna, każda kończy się tak samo.</p>
         </div>
         <div class="menu-actions">
-          ${saved ? `<button class="btn primary" data-a="continue">Kontynuuj wyprawę<small>${esc(CLASSES[saved.cls].name)} · ${saved.hp}/${saved.maxHp} PŻ · piętro ${Math.max(1, floorOf(saved))}/8</small></button>` : ''}
+          ${saved ? `<button class="btn primary" data-a="continue">Kontynuuj wyprawę<small>${esc(CLASSES[saved.cls].name)} · ${saved.hp}/${saved.maxHp} PŻ · piętro ${Math.max(1, floorOf(saved))}/${saved.map.rows}</small></button>` : ''}
           <button class="btn ${saved ? '' : 'primary'}" data-a="new">Nowa wyprawa</button>
           <button class="btn" data-a="daily">Wyzwanie dnia<small>${dailyDone ? `dzisiejszy wynik: ${dailyDone}` : 'jedna mapa na dziś, dla wszystkich ta sama'}</small></button>
         </div>
@@ -100,10 +104,10 @@ export class Game {
         this.resume();
       } else if (a === 'new') {
         if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie. Na zawsze.'))) return;
-        const cls = await this.pickClass();
-        if (!cls) return;
+        const pick = await this.pickClass();
+        if (!pick) return;
         this.closeMenu();
-        this.begin(newRun(cls, (Math.random() * 2 ** 32) >>> 0, null));
+        this.begin(newRun(pick.cls, (Math.random() * 2 ** 32) >>> 0, null, pick.len));
       } else if (a === 'daily') {
         if (saved && !(await this.confirm('Porzucić obecną wyprawę?', 'Zapisana wyprawa przepadnie. Na zawsze.'))) return;
         const seed = hash('daily', today);
@@ -123,7 +127,13 @@ export class Game {
     setTimeout(() => m.remove(), 300);
   }
 
-  private pickClass(): Promise<string | null> {
+  private pickClass(): Promise<{ cls: string; len: RunLen } | null> {
+    let len: RunLen = 'short';
+    try {
+      if (localStorage.getItem(LEN_KEY) === 'long') len = 'long';
+    } catch {
+      /* storage unavailable */
+    }
     const cards = Object.entries(CLASSES)
       .map(([id, c], i) => `<button class="pick class-card" data-c="${id}">
           <div class="id-head"><span>Legitymacja bohatera</span><span>Nr ${String(i + 1).padStart(4, '0')}/87</span></div>
@@ -143,8 +153,28 @@ export class Game {
           <div class="id-sign">podpis posiadacza <span>${SIGNATURES[id] ?? c.name}</span></div>
         </button>`)
       .join('');
-    return overlay<string | null>(`<h2>Kto dziś idzie?</h2><div class="choices">${cards}</div><button class="btn ghost" data-x>Wróć</button>`, (root, close) => {
-      root.querySelectorAll<HTMLElement>('[data-c]').forEach((b) => b.addEventListener('click', () => close(b.dataset.c!)));
+    const now = new Date(), two = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${two(now.getDate())}.${two(now.getMonth() + 1)} ${two(now.getHours())}:${two(now.getMinutes())}`;
+    const ticket = (id: RunLen, name: string, info: string) =>
+      `<button class="len-ticket ${id === len ? 'on' : ''}" data-len="${id}" aria-pressed="${id === len}"><span class="lt-kind">MPK · bilet</span><strong>${name}</strong><small>${info}</small><span class="lt-punch">${stamp}</span></button>`;
+    const tickets = `<div class="len-pick">${ticket('short', '20 minut', `${LENGTHS.short.rows} pięter · 1 szef · na dojazd`)}${ticket('long', 'Dobowy', `${LENGTHS.long.rows} pięter · 2 szefów · więcej dróg`)}</div>`;
+    return overlay<{ cls: string; len: RunLen } | null>(`<h2>Kto dziś idzie?</h2>${tickets}<div class="choices">${cards}</div><button class="btn ghost" data-x>Wróć</button>`, (root, close) => {
+      root.querySelectorAll<HTMLElement>('[data-len]').forEach((b) =>
+        b.addEventListener('click', () => {
+          sfx.click();
+          len = b.dataset.len as RunLen;
+          root.querySelectorAll<HTMLElement>('[data-len]').forEach((o) => {
+            o.classList.toggle('on', o === b);
+            o.setAttribute('aria-pressed', String(o === b));
+          });
+          try {
+            localStorage.setItem(LEN_KEY, len);
+          } catch {
+            /* ignore */
+          }
+        }),
+      );
+      root.querySelectorAll<HTMLElement>('[data-c]').forEach((b) => b.addEventListener('click', () => close({ cls: b.dataset.c!, len })));
       root.querySelector('[data-x]')!.addEventListener('click', () => close(null));
     });
   }
@@ -265,8 +295,7 @@ export class Game {
   private async battle(n: MapNode) {
     const run = this.run!;
     const tier = (run.stage?.tier ?? 'normal') as Tier;
-    const floor = n.row + (n.type === 'event' ? 1 : 0);
-    const enemy = genEnemy(hash(run.seed, 'enemy', n.id, n.type), floor, tier);
+    const enemy = enemyFor(run, n, tier);
     const mrng = rngFor(run, 'mods', n.id);
     const mods: string[] = [];
     const modChance = tier === 'boss' ? 1 : tier === 'elite' ? 0.7 : n.row >= 1 ? 0.35 : 0;
@@ -301,12 +330,14 @@ export class Game {
     run.hp = res.hp;
     run.stats.kills++;
     const before = run.hp;
-    run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * BAL.winHeal) + (has(run, 'bandage') ? 8 : 0));
+    const final = isFinalBoss(run.map, n);
+    const healShare = tier === 'boss' && !final ? BAL.midHeal : BAL.winHeal;
+    run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * healShare) + (has(run, 'bandage') ? 8 : 0));
     const healed = run.hp - before;
     const rng = rngFor(run, 'gold', n.id);
     const base = (tier === 'elite' ? 30 : tier === 'boss' ? 60 : 12) + n.row * 3 + rng.int(0, 8);
     run.gold += res.gold + base;
-    if (tier === 'boss') {
+    if (final) {
       saveRun(run);
       return this.gameOver(true);
     }
@@ -322,10 +353,11 @@ export class Game {
     const run = this.run!;
     const st = run.stage!;
     const rng = rngFor(run, 'reward', n.id);
-    if (st.tier === 'elite') {
-      const opts = randomRelics(run, rng, 2);
+    if (st.tier === 'elite' || st.tier === 'boss') {
+      const boss = st.tier === 'boss';
+      const opts = randomRelics(run, rng, boss ? 3 : 2);
       if (opts.length) {
-        const pick = await overlay<string>(`<div class="eyebrow">po grubej rybie zostało</div><h2>Weź pamiątkę</h2>
+        const pick = await overlay<string>(`<div class="eyebrow">${boss ? 'półmetek wyprawy' : 'po grubej rybie zostało'}</div><h2>${boss ? 'Dzielnica wolna!' : 'Weź pamiątkę'}</h2>
           <div class="choices">${opts.map((id) => `<button class="pick" data-r="${id}">${relicHTML(id)}</button>`).join('')}</div>`, (root, close) => {
           root.querySelectorAll<HTMLElement>('[data-r]').forEach((b) => b.addEventListener('click', () => close(b.dataset.r!)));
         });
@@ -511,12 +543,12 @@ export class Game {
     saveRun(null);
     this.clearHud();
     const mins = Math.max(1, Math.round((Date.now() - run.stats.start) / 60000));
-    const she = run.cls === 'druid';
+    const she = !!CLASSES[run.cls].she;
     const floor = Math.max(1, floorOf(run));
     const mourners = ['diabliki z działek', 'koledzy z przystanku', 'pani z okienka nr 3', 'teściowa (bez żalu)', 'sąsiedzi z bloku'];
     const head = won
       ? `<div class="eyebrow">dyplom uznania</div>
-      <h2 class="win">Szef pokonany!</h2>
+      <h2 class="win">${run.map.mid !== undefined ? 'Obie dzielnice wolne!' : 'Szef pokonany!'}</h2>
       <p class="lead">Za zasługi w tłuczeniu diablików, utopców i urzędników wyróżnia się: <b>${esc(CLASSES[run.cls].name)}</b>. Wracasz do domu z tarczą. I z reklamówką łupów.</p>`
       : `<div class="eyebrow">z głębokim żalem zawiadamiamy, że</div>
       <h2 class="lose">ś.p. ${esc(CLASSES[run.cls].name)}</h2>
@@ -535,8 +567,8 @@ export class Game {
     }, won ? 'victory' : 'defeat');
     this.run = null;
     if (a === 'again') {
-      const cls = await this.pickClass();
-      if (cls) return this.begin(newRun(cls, (Math.random() * 2 ** 32) >>> 0, null));
+      const pick = await this.pickClass();
+      if (pick) return this.begin(newRun(pick.cls, (Math.random() * 2 ** 32) >>> 0, null, pick.len));
     }
     this.menu();
   }
@@ -568,7 +600,7 @@ export class Game {
         <img class="hud-por" src="${portraitOf(run.cls)}" alt="">
         <span class="hud-hp"><i class="heart"></i>${run.hp}<small>/${run.maxHp}</small></span>
         <span class="hud-gold">${coinImg()}${run.gold} zł</span>
-        <span class="hud-floor">Piętro ${Math.max(1, floorOf(run))}/8</span>
+        <span class="hud-floor">Piętro ${Math.max(1, floorOf(run))}/${run.map.rows}</span>
       </div>
       <div class="hud-btns"><button class="icon-btn wide" data-h="bag">Zeszyt</button><button class="icon-btn" data-h="menu" aria-label="Menu"><i class="bars"></i></button></div>`;
   }
@@ -582,7 +614,7 @@ export class Game {
     const run = this.run!;
     overlay<void>(`<div class="eyebrow">${esc(CLASSES[run.cls].name)}</div><h2>Zeszyt i graty</h2>
       <p class="lead">${esc(CLASSES[run.cls].perk)}</p>
-      <div class="ult-card"><span class="ult-stamp">supermoc</span><strong>${esc(ULTS[run.cls].name)}</strong><p>${esc(ULTS[run.cls].desc)}</p><p>Ładuje się fioletowymi kapslami (${BAL.capsNeeded}). Odpalasz ją, dotykając portretu.</p></div>
+      <div class="ult-card"><span class="ult-stamp">supermoc</span><strong>${esc(ULTS[run.cls].name)}</strong><p>${esc(ULTS[run.cls].desc)}</p><p>Ładuje się fioletowymi kapslami (${CLASSES[run.cls].traits?.caps ?? BAL.capsNeeded}). Odpalasz ją, dotykając portretu.</p></div>
       <h3>Czary w zeszycie</h3><div class="choices">${run.spells.map((s) => spellHTML(s)).join('')}</div>
       <h3>Graty w kieszeniach</h3><div class="choices">${run.relics.length ? run.relics.map((r) => relicHTML(r)).join('') : '<p class="muted">Puste kieszenie. Graty znajdziesz w słoikach babci, w sklepach i u grubych ryb.</p>'}</div>
       <button class="btn primary" data-ok>Zamknij</button>`, (root, close) => {

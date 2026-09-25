@@ -1,7 +1,7 @@
 import { app, type PEvent, type Scene } from '../app';
 import { buzz, sfx } from '../core/audio';
 import { clamp, easeBack, easeInOut, hash, RNG, TAU } from '../core/rng';
-import { AIR, CAP, COIN, EARTH, ELEM_COLOR, FIRE, SKULL, THEMES } from '../core/types';
+import { AIR, CAP, COIN, EARTH, ELEM_COLOR, FIRE, SKULL, THEMES, WATER } from '../core/types';
 import { mixHex, rgba } from '../gfx/color';
 import { FX } from '../gfx/fx';
 import { GEM_PAL, gemArt } from '../gfx/gems';
@@ -10,11 +10,11 @@ import { glow, roundRect, star } from '../gfx/sprites';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, NOVA, type Birth, type Explosion, type Gem } from '../game/board';
 import { BAL, quietMult } from '../game/balance';
-import { CLASSES, MODS } from '../game/content';
+import { CLASSES, heroSetup, MODS } from '../game/content';
 import { TRAIT_DESC, type EnemySpec } from '../game/enemies';
 import { Fighter, type SpellInst } from '../game/fighter';
 import { has, type BattleSave, type Run } from '../game/run';
-import { affordable, SPELLS, type FxKind, type SpellCtx } from '../game/spells';
+import { affordable, costOf, SPELLS, type FxKind, type SpellCtx } from '../game/spells';
 import { ULTS } from '../game/ult';
 import { costHTML, esc, hideTip, showTip } from '../ui/dom';
 
@@ -90,10 +90,12 @@ export class BattleScene implements Scene {
     this.E.vampiric = spec.traits.includes('vampiric');
     this.P.skull = BAL.playerSkull;
     if (has(run, 'skullring')) this.P.skull += 1;
+    heroSetup(this.P, run.cls);
     if (has(run, 'lens')) this.P.maxMana = this.P.maxMana.map((m) => m + 6);
     if (spec.tier === 'boss') this.E.maxMana = this.E.maxMana.map((m) => m + 6);
     this.cur = this.P;
     this.freeSpell = has(run, 'hourglass');
+    this.P.purse = run.gold;
 
     const mods = setup.mods;
     const w = this.board.weights;
@@ -123,6 +125,8 @@ export class BattleScene implements Scene {
       this.gold = sv.gold;
       this.freeSpell = sv.freeSpell;
       this.P.caps = sv.caps ?? 0;
+      this.P.bribes = sv.bribes ?? 0;
+      this.P.rush = sv.rush ?? 0;
     } else {
       this.board.fillFresh();
       const P = this.P, E = this.E;
@@ -312,7 +316,7 @@ export class BattleScene implements Scene {
     });
     this.setup.onSave({
       turn: this.cur === this.P ? 0 : 1, board: this.board.dump(), f: [f(this.P), f(this.E)],
-      rng: this.rng.s, turnNo: this.turnNo, gold: this.gold, freeSpell: this.freeSpell, caps: this.P.caps,
+      rng: this.rng.s, turnNo: this.turnNo, gold: this.gold, freeSpell: this.freeSpell, caps: this.P.caps, bribes: this.P.bribes, rush: this.P.rush,
     });
   }
 
@@ -353,6 +357,7 @@ export class BattleScene implements Scene {
 
   private tickStr(f: Fighter) {
     if (f.str.turns > 0 && --f.str.turns === 0) f.str.amt = 0;
+    if (f.rush > 0) f.rush--;
   }
 
   private async playerTurn(): Promise<boolean> {
@@ -462,6 +467,7 @@ export class BattleScene implements Scene {
       level++;
       const plan = this.board.plan(groups, prefer);
       if (plan.maxLen >= 4) extra = true;
+      if (actor.rush > 0 && groups.some((g) => g.t === SKULL)) extra = true;
       await this.clearCells(actor, plan.clear, plan.births, level, plan.maxLen);
       prefer = [];
       if (this.over) break;
@@ -555,6 +561,7 @@ export class BattleScene implements Scene {
     if (isP && run.cls === 'storm' && maxLen >= 4) add(actor, AIR, 3);
     if (isP && has(run, 'prismeye') && maxLen >= 4) for (let c = 0; c < 4; c++) add(actor, c, 2);
     if (isP && run.cls === 'druid' && counts[EARTH]) this.heal(actor, 1, 0.5);
+    if (nExp && actor.expMana) add(actor, WATER, actor.expMana * nExp);
 
     if (counts[SKULL]) {
       let dmg = counts[SKULL] * (actor.skull + actor.str.amt);
@@ -576,6 +583,8 @@ export class BattleScene implements Scene {
       if (isP) {
         const g = counts[COIN] * (has(run, 'goldtooth') ? 2 : 1);
         this.gold += g;
+        actor.purse += g;
+        if (actor.coinHit) this.hurt(foe, counts[COIN] * actor.coinHit, 0.5, '#e4ecff');
         const gx = this.L.gold.x - 30, gy = this.L.gold.y;
         for (const [x, y, t] of pos) if (t === COIN) this.fx.orb(x, y, gx, gy, '#e4ecff', 0.5, () => sfx.coin(), cellSz * 0.2);
         this.fx.text(gx - 10, gy + 18, `+${g} zł`, '#eef3f8', 16, 0.9, 30);
@@ -588,8 +597,8 @@ export class BattleScene implements Scene {
       const [tx, ty] = this.porXY(actor);
       if (isP) {
         const before = actor.caps;
-        actor.caps = Math.min(BAL.capsNeeded, actor.caps + counts[CAP]);
-        const ready = before < BAL.capsNeeded && actor.caps >= BAL.capsNeeded;
+        actor.caps = Math.min(actor.capsNeeded, actor.caps + counts[CAP]);
+        const ready = before < actor.capsNeeded && actor.caps >= actor.capsNeeded;
         let k = 0;
         for (const [x, y, t] of pos)
           if (t === CAP)
@@ -799,7 +808,16 @@ export class BattleScene implements Scene {
 
   private async cast(f: Fighter, inst: SpellInst) {
     const def = SPELLS[inst.id];
-    for (let c = 0; c < 4; c++) f.mana[c] -= def.cost[c];
+    const cost = costOf(f, def);
+    for (let c = 0; c < 4; c++) f.mana[c] -= cost[c];
+    if (def.gold) {
+      const price = def.gold(f.bribes++);
+      f.purse -= price;
+      if (f.isPlayer) this.gold -= price;
+      const [gx, gy] = this.porXY(f);
+      this.fx.text(gx, gy - 20, `-${price} zł`, '#eef3f8', 20);
+      sfx.coin();
+    }
     if (def.hp) {
       f.hp = Math.max(1, f.hp - def.hp);
       f.hpShown = f.hp;
@@ -845,6 +863,20 @@ export class BattleScene implements Scene {
         this.fx.text(x, y - r, `+${v} ⛨`, '#9fd4ff', 22);
         sfx.shield();
         await this.wait(0.5);
+      },
+      caps: async (n) => {
+        if (!me.isPlayer) return;
+        const before = me.caps;
+        me.caps = Math.min(me.capsNeeded, me.caps + n);
+        const [x, y] = this.porXY(me);
+        this.fx.text(x, y - 20, `+${me.caps - before} kapsle`, '#e08aff', 20);
+        sfx.cap();
+        if (before < me.capsNeeded && me.caps >= me.capsNeeded) this.fx.after(0.5, () => this.banner('Supermoc gotowa!', 'dotknij portretu', '#d86aff', 26, 1.3));
+        await this.wait(0.4);
+      },
+      announce: async (title, sub) => {
+        this.banner(title, sub, '#e08aff', 30, 1.5);
+        await this.wait(0.8);
       },
       unshield: async () => {
         if (foe.shield <= 0) return;
@@ -1009,7 +1041,7 @@ export class BattleScene implements Scene {
     const r = this.side(f).spells[i];
     showTip(
       `<strong style="color:${ELEM_COLOR[d.elem]}">${esc(d.name)}${inst.lvl > 1 ? '+' : ''}</strong>${d.quick ? ' <span class="tag">szybki</span>' : ''}
-       <div class="spell-cost">${costHTML(d.cost, d.hp)}</div><p>${esc(d.desc(inst.lvl))}</p>`,
+       <div class="spell-cost">${costHTML(costOf(f, d), d.hp, d.gold?.(f.bribes))}</div><p>${esc(d.desc(inst.lvl))}</p>`,
       r, side === 'E' && !this.L.wide ? true : false,
     );
   }
@@ -1020,10 +1052,10 @@ export class BattleScene implements Scene {
       const por = this.L.P.por;
       if (Math.hypot(e.x - por.x, e.y - por.y) < por.r * 1.2) {
         const u = ULTS[this.run.cls];
-        if (this.phase === 'input' && this.P.caps >= BAL.capsNeeded) this.resolver?.({ k: 'ult' });
+        if (this.phase === 'input' && this.P.caps >= this.P.capsNeeded) this.resolver?.({ k: 'ult' });
         else
           showTip(
-            `<strong style="color:#e08aff">Supermoc: ${esc(u.name)}</strong><p>${esc(u.desc)}</p><p>Kapsle: <b>${this.P.caps}/${BAL.capsNeeded}</b>. Zbieraj fioletowe kapsle, a gdy pierścień się zapełni, dotknij portretu.</p>`,
+            `<strong style="color:#e08aff">Supermoc: ${esc(u.name)}</strong><p>${esc(u.desc)}</p><p>Kapsle: <b>${this.P.caps}/${this.P.capsNeeded}</b>. Zbieraj fioletowe kapsle, a gdy pierścień się zapełni, dotknij portretu.</p>`,
             { x: por.x - por.r, y: por.y - por.r, w: por.r * 2, h: por.r * 2 }, false,
           );
         return;
@@ -1413,7 +1445,21 @@ export class BattleScene implements Scene {
     ctx.textBaseline = 'middle';
     ctx.font = `400 ${N_.size}px ${DISPLAY}`;
     ctx.fillStyle = '#f3e7cf';
-    const nm = f.isPlayer ? f.title : f.name;
+    let nm = f.isPlayer ? f.title : f.name;
+    if (f.isPlayer && !this.L.wide) {
+      // share the row with the purse and status pills: shrink long hero names to fit
+      ctx.font = `800 11px ${BODY}`;
+      const pills = this.statusItems(f).reduce((a, [, label]) => a + ctx.measureText(label).width + 27, 0);
+      const room = S.status.x - pills - N_.x - 6;
+      ctx.font = `400 ${N_.size}px ${DISPLAY}`;
+      let fs = N_.size;
+      while (fs > 13 && ctx.measureText(nm).width > room) ctx.font = `400 ${--fs}px ${DISPLAY}`;
+      if (ctx.measureText(nm).width > room) {
+        nm = CLASSES[this.run.cls].short;
+        ctx.font = `400 ${(fs = N_.size)}px ${DISPLAY}`;
+        while (fs > 11 && ctx.measureText(nm).width > room) ctx.font = `400 ${--fs}px ${DISPLAY}`;
+      }
+    }
     ctx.fillText(nm, N_.x, N_.y);
     if (this.L.wide) {
       ctx.font = `500 15px ${BODY}`;
@@ -1448,7 +1494,7 @@ export class BattleScene implements Scene {
 
   /** Ten-notch ring of bottle caps; when full the portrait itself becomes the supermove button. */
   private drawCaps(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, f: Fighter) {
-    const need = BAL.capsNeeded;
+    const need = f.capsNeeded;
     const full = f.caps >= need;
     const R = r * 1.15;
     const gap = 0.07;
@@ -1587,11 +1633,17 @@ export class BattleScene implements Scene {
     ctx.fillText(txt, bx + bw - 4, r.y + r.h / 2 + 1);
   }
 
-  private drawStatus(ctx: CanvasRenderingContext2D, s: Side['status'], f: Fighter) {
+  private statusItems(f: Fighter): [string, string, string][] {
     const items: [string, string, string][] = [];
     if (f.poison.turns > 0) items.push(['#4ddc6a', `☠${f.poison.dmg}`, `${f.poison.turns}`]);
     if (f.str.turns > 0) items.push(['#ff6a3d', `+${f.str.amt}`, `${f.str.turns}`]);
     if (f.stun > 0) items.push(['#ffd23f', '✦', `${f.stun}`]);
+    if (f.rush > 0) items.push(['#ff8a5a', 'seria', `${f.rush}`]);
+    return items;
+  }
+
+  private drawStatus(ctx: CanvasRenderingContext2D, s: Side['status'], f: Fighter) {
+    const items = this.statusItems(f);
     let x = s.x;
     ctx.textBaseline = 'middle';
     for (const [col, label, n] of items) {
@@ -1724,7 +1776,8 @@ export class BattleScene implements Scene {
     if (chip) {
       // how close the enemy is to casting it
       let prog = 1;
-      for (let c = 0; c < 4; c++) if (def.cost[c]) prog = Math.min(prog, f.manaVis[c] / def.cost[c]);
+      const cost = costOf(f, def);
+      for (let c = 0; c < 4; c++) if (cost[c]) prog = Math.min(prog, f.manaVis[c] / cost[c]);
       const bx = r.x + 16, by = y + r.h - 10, bw = r.w - 32;
       roundRect(ctx, bx, by, bw, 3.5, 2);
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -1737,8 +1790,9 @@ export class BattleScene implements Scene {
       const yy = y + r.h - 16;
       ctx.font = `700 13px ${BODY}`;
       ctx.textAlign = 'left';
+      const cost = costOf(f, def);
       for (let c = 0; c < 4; c++) {
-        const n = def.cost[c];
+        const n = cost[c];
         if (!n) continue;
         ctx.drawImage(gemArt.spr[c], x - 3, yy - 9, 18, 18);
         ctx.fillStyle = f.mana[c] >= n ? '#ffffff' : '#ffc4c4';
@@ -1749,7 +1803,13 @@ export class BattleScene implements Scene {
         ctx.fillStyle = '#ffd0d4';
         ctx.fillText(`♥ ${def.hp} PŻ`, x, yy + 1);
       }
-      if (!def.hp && def.cost.every((n) => !n)) {
+      if (def.gold) {
+        const price = def.gold(f.bribes);
+        ctx.drawImage(gemArt.spr[COIN], x - 3, yy - 9, 18, 18);
+        ctx.fillStyle = f.purse >= price ? '#ffffff' : '#ffc4c4';
+        ctx.fillText(`${price} zł`, x + 15, yy + 1);
+      }
+      if (!def.hp && !def.gold && def.cost.every((n) => !n)) {
         ctx.fillStyle = 'rgba(255,255,255,0.75)';
         ctx.fillText('za darmo', x, yy + 1);
       }

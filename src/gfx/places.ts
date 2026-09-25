@@ -187,6 +187,20 @@ ${[38, 46, 54, 62].map((x) => `<rect x="${x - 2}" y="46" width="4" height="34" f
 <path d="M50 26 L50 6" stroke="${O}" stroke-width="1.6"/>
 <path d="M50 7 L64 8 L64 12 L50 11 Z" fill="#fff" ${S2}/><path d="M50 11 L64 12 L64 16 L50 15 Z" fill="#e0243c" ${S2}/>`,
 
+  domkultury: `${shadow(48)}
+<path d="M4 50 L96 50 L96 86 L4 86 Z" fill="#d8d2c4" ${S}/>
+${shade('M78 50 L96 50 L96 86 L78 86 Z', 0.14)}
+${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => `<rect x="${7 + i * 8}" y="54" width="6" height="12" fill="${i % 3 === 1 ? '#ffd86a' : '#3a5a7a'}" ${S2}/>`).join('')}
+<path d="M10 70 L50 70 L50 86 L10 86 Z" fill="#2a6ab8" ${S2}/>
+${[0, 1, 2, 3, 4].map((i) => [0, 1].map((j) => `<rect x="${12 + i * 7.6}" y="${72 + j * 6.4}" width="6.4" height="5.2" fill="${['#e8763a', '#f2c84a', '#fff', '#c83a4a', '#3ac88a'][(i + j * 3) % 5]}"/>`).join('')).join('')}
+<path d="M58 86 L58 70 L86 70 L86 86" fill="#9ac4e8" ${S2}/><path d="M72 70 L72 86 M58 76 L86 76" stroke="${O}" stroke-width="1"/>
+<path d="M54 70 L90 70 L92 66 L52 66 Z" fill="#b8b0a4" ${S2}/>
+<path d="M0 50 L100 50 L100 44 L0 44 Z" fill="#b8b0a4" ${S}/>
+<path d="M18 44 L18 22 L82 22 L82 44" fill="none" stroke="${O}" stroke-width="1.6"/>
+<rect x="14" y="12" width="72" height="14" rx="2" fill="#241a2e" ${S2}/>
+${T(50, 22.6, 8.4, '#ff5ac8', 'DOM KULTURY', 'stroke="#ff9ae0" stroke-width=".3"')}
+<path d="M8 44 L8 30 M92 44 L92 30" stroke="${O}" stroke-width="1.6"/><path d="M8 30 L16 32 L8 34 Z M92 30 L84 32 L92 34 Z" fill="#e0243c" ${S2}/>`,
+
   dom: `${shadow(36)}
 <path d="M24 50 L70 50 L70 84 L24 84 Z" fill="#f2e2c4" ${S}/>
 <path d="M18 52 L47 28 L76 52 Z" fill="#c8483a" ${S}/>
@@ -213,6 +227,7 @@ export const PLACE_NAMES: Record<string, string> = {
   ognisko: 'Ognisko nad rzeką',
   chata: 'Chata babci',
   urzad: 'Urząd Gminy',
+  domkultury: 'Dom Kultury',
   dom: 'Twój dom',
 };
 
