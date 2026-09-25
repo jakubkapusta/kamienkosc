@@ -7,7 +7,7 @@ import { hash, RNG } from '../core/rng';
 import { AIR, CAP, COIN, EARTH, FIRE, SKULL } from '../core/types';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, type Birth, type Gem } from '../game/board';
-import { BAL } from '../game/balance';
+import { BAL, quietMult } from '../game/balance';
 import { CLASSES, MODS } from '../game/content';
 import { genEnemy, type EnemySpec, type Tier } from '../game/enemies';
 import { EVENTS } from '../game/events';
@@ -55,6 +55,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   if (mods.includes('cataclysm')) for (const i of rng.shuffle([...Array(64).keys()]).slice(0, 4)) board.g[i]!.sp = BOMB;
 
   let over = 0;
+  let turnNo = 0, pTurns = 0;
   let ultsUsed = 0;
   let gold = 0;
   const other = (f: Fighter) => (f === P ? E : P);
@@ -85,6 +86,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
     if (counts[SKULL]) {
       let dmg = counts[SKULL] * (actor.skull + actor.str.amt);
       if (mods.includes('bloodmoon')) dmg *= 2;
+      dmg *= quietMult(turnNo);
       const dealt = hurt(foe, dmg);
       if (isP && has(run, 'chalice')) heal(actor, counts[SKULL]);
       if (!isP && actor.vampiric && dealt) heal(actor, Math.ceil(dealt / 2));
@@ -157,6 +159,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
       damage: async (n) => void hurt(foe, n * pow),
       heal: async (n) => heal(me, n * pow),
       shield: async (n) => void (me.shield += Math.round(n * pow)),
+      unshield: async () => void (foe.shield = 0),
       poison: async (d, t) => void (foe.poison = { dmg: Math.max(foe.poison.dmg, Math.round(d * pow)), turns: foe.poison.turns + t }),
       stun: async (t) => void (foe.stun += t),
       strength: async (n, t) => void (me.str = { amt: n, turns: t + 1 }),
@@ -231,7 +234,6 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
   };
 
   let cur = P;
-  let turnNo = 0, pTurns = 0;
   while (!over && turnNo < 400) {
     turnNo++;
     const f = cur;
@@ -264,7 +266,7 @@ export async function simBattle(run: Run, spec: EnemySpec, mods: string[], seed:
 // ---------------------------------------------------------------- whole runs
 
 /** How much the sim player values a spell (rough power ranking). */
-const RANK = ['meteor', 'inferno', 'blizzard', 'leech', 'storm', 'fireball', 'chain', 'quake', 'frenzy', 'venom', 'necro', 'prism', 'frostbolt', 'mend', 'stoneskin', 'theft', 'alchemy', 'tide', 'verdant', 'whirl', 'bloodpact'];
+const RANK = ['meteor', 'inferno', 'blizzard', 'leech', 'storm', 'fireball', 'chain', 'slipper', 'quake', 'frenzy', 'venom', 'necro', 'prism', 'frostbolt', 'mend', 'stoneskin', 'theft', 'alchemy', 'tide', 'verdant', 'whirl', 'bloodpact'];
 const rankOf = (id: string) => RANK.length - RANK.indexOf(id);
 
 export interface RunOut {

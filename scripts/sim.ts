@@ -29,6 +29,11 @@ for (const skill of skills) {
     console.log(`  piętro ${row + 1}: ${pct(d.length, all.length).padStart(6)} wszystkich wypraw  (zadyma ${by('normal')}, gruba ryba ${by('elite')}, szef ${by('boss')}, wydarzenie ${by('event')})`);
   }
   const battles = all.flatMap((r) => r.battles);
+  console.log('\nDługie walki (tury gracza): p95 · ≥30 tur · ≥40 tur · najdłuższa');
+  for (const cls of CLASS_IDS) {
+    const t = all.filter((r) => r.cls === cls).flatMap((r) => r.battles.filter((b) => b.tier !== 'boss').map((b) => b.turns)).sort((a, b) => a - b);
+    console.log(`  ${cls.padEnd(6)} p95 ${String(t[Math.floor(t.length * 0.95)]).padStart(3)} · ${pct(t.filter((x) => x >= 30).length, t.length).padStart(6)} · ${pct(t.filter((x) => x >= 40).length, t.length).padStart(6)} · ${t[t.length - 1]}`);
+  }
   console.log(`\nSupermoc: średnio ${avg(battles.map((b) => b.ults)).toFixed(2)} na walkę, w ${pct(battles.filter((b) => b.ults > 0).length, battles.length)} walk przynajmniej raz`);
   console.log('\nWalki wg piętra: śr. utrata PŻ (% maks.) · śr. tur gracza · przegrane');
   for (let row = 0; row < 8; row++) {

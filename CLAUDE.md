@@ -20,7 +20,7 @@ Dev-only helpers: `window.__sf = { app, game }` (inspect `__sf.app.scene`, call 
 - Enemy titles are built as `[trait adjective] + archetype + place` ("Skacowany Diablik z Działki"). Archetypes are all masculine nouns so adjectives agree — keep it that way or handle gender.
 - No real brands or logos: parodies only (sklep „Ropuszka”, stacja „Sokół”).
 - UI is built from **street/paper objects**, not generic panels: enamel street signs (primary buttons, spells in battle, HUD buttons), MPK paper tickets (secondary buttons), price tags (shop), notebook pages (spells), fiscal receipts (relics), hero ID cards (class select), cork notice board (all dialogs), klepsydra / diploma (game over). New UI should pick an object from this world rather than a dark glass card.
-- Fonts (bundled via @fontsource, all with Polish glyphs): Lilita One (display), Signika (body), Courier Prime (typewriter), Caveat (handwriting). Add `latin-ext` subsets when adding fonts.
+- Fonts (bundled via @fontsource): Paytone One (display), Signika (body), Courier Prime (typewriter), Caveat (handwriting). Import the per-weight CSS (`@fontsource/x/400.css`), not `latin-400.css`/`latin-ext-400.css`: only weight files carry `unicode-range`, and without it Android draws Polish letters from a fallback font. Before adding a font, check it really has ąćęłńśźż (Lilita One didn't; its latin-ext file has 11 glyphs).
 
 ## Where things live
 
@@ -53,11 +53,13 @@ Dev-only helpers: `window.__sf = { app, game }` (inspect `__sf.app.scene`, call 
 - **Everything generated comes from the run seed** (`rngFor(run, ...)`, `hash(...)`) so reloads reproduce the same map, enemies, shop and rewards. Don't use `Math.random()` for gameplay, only for visuals.
 - **Art is inline SVG** rendered via data URLs and rasterized once per size (`portrait.ts`, `gems.ts`, `scenes/map.ts`). SVGs must be self-contained (no external refs; system fonts only for tiny text). No image files except the PWA icons in `public/`.
 - **Mobile first.** Test at 375×812 (portrait layout) and a wide window (landscape layout: battle side panels, horizontal village map). The map scrolls vertically on phones.
+- **Cisza nocna** (`BAL.quietAt`, `quietMult()` in `balance.ts`): after ~50 turns skulls hit ×2, then +1× every 20 turns, so healer-vs-shield fights can't stall. Keep it in both battle and sim.
+- **Shops** appear only from floor 5 (`SHOP_FROM` in `game/map.ts`); earlier the player can't afford anything.
 - Vite `base` is `./` — keep asset paths relative so Pages subpaths work.
 
 ## Balance
 
-Target: a sensible player wins ~40% of runs, classes within a few points of each other, ordinary fights ~14 player turns (commute length), no sudden difficulty walls between floors.
+Target: a sensible player wins ~40% of runs, classes within a few points of each other, ordinary fights ~14 player turns (commute length), no sudden difficulty walls between floors, no stalled fights (check the „Długie walki” block: ≥40 turns should stay under ~1%).
 
 ```bash
 npm run sim -- 1000 0.9                 # 1000 runs per class, player AI skill 0.9

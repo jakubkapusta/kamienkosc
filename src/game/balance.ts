@@ -27,4 +27,10 @@ export const BAL = {
   capsNeeded: 8,
   /** share of max HP recovered after each won battle */
   winHeal: 0.25,
+  /** "Cisza nocna": from this turn (both sides, extra turns count) skulls hit double, +1× every quietStep turns after */
+  quietAt: 50,
+  quietStep: 20,
 };
+
+/** Skull damage multiplier from the anti-stall rule (1 before BAL.quietAt). */
+export const quietMult = (turnNo: number) => (turnNo < BAL.quietAt ? 1 : 2 + Math.floor((turnNo - BAL.quietAt) / BAL.quietStep));

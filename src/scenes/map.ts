@@ -14,7 +14,7 @@ import { NODE_NAME, ROWS, type MapNode, type NodeType } from '../game/map';
 import type { Run } from '../game/run';
 import { esc, hideTip, showTip } from '../ui/dom';
 
-const DISPLAY = '"Lilita One", "Arial Black", sans-serif';
+const DISPLAY = '"Paytone One", "Arial Black", sans-serif';
 const BODY = '"Signika", system-ui, sans-serif';
 
 const NODE_COL: Record<NodeType, string> = {

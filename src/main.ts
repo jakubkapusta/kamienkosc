@@ -1,17 +1,12 @@
-import '@fontsource/lilita-one/latin-400.css';
-import '@fontsource/lilita-one/latin-ext-400.css';
-import '@fontsource/signika/latin-400.css';
-import '@fontsource/signika/latin-ext-400.css';
-import '@fontsource/signika/latin-600.css';
-import '@fontsource/signika/latin-ext-600.css';
-import '@fontsource/signika/latin-700.css';
-import '@fontsource/signika/latin-ext-700.css';
-import '@fontsource/courier-prime/latin-400.css';
-import '@fontsource/courier-prime/latin-ext-400.css';
-import '@fontsource/courier-prime/latin-700.css';
-import '@fontsource/courier-prime/latin-ext-700.css';
-import '@fontsource/caveat/latin-700.css';
-import '@fontsource/caveat/latin-ext-700.css';
+// Weight files (not per-subset ones): only they declare unicode-range, without it Android
+// renders Polish letters from a fallback font.
+import '@fontsource/paytone-one/400.css';
+import '@fontsource/signika/400.css';
+import '@fontsource/signika/600.css';
+import '@fontsource/signika/700.css';
+import '@fontsource/courier-prime/400.css';
+import '@fontsource/courier-prime/700.css';
+import '@fontsource/caveat/700.css';
 import './style.css';
 import { initApp } from './app';
 import { Game } from './flow';
@@ -21,10 +16,11 @@ async function boot() {
   try {
     await Promise.race([
       Promise.all([
-        document.fonts.load('400 20px "Lilita One"', 'Ąę'),
-        document.fonts.load('700 16px "Signika"', 'Ąę'),
-        document.fonts.load('600 16px "Signika"', 'Ąę'),
-        document.fonts.load('400 16px "Signika"', 'Ąę'),
+        // latin + latin-ext faces are separate files; ask for both so canvas text has Polish glyphs
+        document.fonts.load('400 20px "Paytone One"', 'AaĄęŚńż'),
+        document.fonts.load('700 16px "Signika"', 'AaĄęŚńż'),
+        document.fonts.load('600 16px "Signika"', 'AaĄęŚńż'),
+        document.fonts.load('400 16px "Signika"', 'AaĄęŚńż'),
       ]),
       new Promise((r) => setTimeout(r, 1500)),
     ]);

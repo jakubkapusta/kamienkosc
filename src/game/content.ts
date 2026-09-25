@@ -38,7 +38,7 @@ export const CLASSES: Record<string, ClassDef> = {
     name: 'Babcia Zielarka',
     desc: 'Przeżyła trzy ustroje i dwóch mężów. Ciebie też przeżyje.',
     perk: 'Każde dopasowanie zielonych leczy 1 PŻ.',
-    hp: 60, spells: ['stoneskin', 'mend'], elem: EARTH,
+    hp: 64, spells: ['slipper', 'mend'], elem: EARTH,
     look: { art: 'babcia', pal: { skin: '#f2c4a8', acc: '#c8322a', eye: '#8dffb8', hair: '#bdb6b0' }, aura: '#35d27a', seed: 23 },
   },
   storm: {

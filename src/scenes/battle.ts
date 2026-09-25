@@ -9,7 +9,7 @@ import { drawPortrait, preloadLook } from '../gfx/portrait';
 import { glow, roundRect, star } from '../gfx/sprites';
 import { chooseMove, chooseSpell } from '../game/ai';
 import { Board, BOMB, N, NOVA, type Birth, type Explosion, type Gem } from '../game/board';
-import { BAL } from '../game/balance';
+import { BAL, quietMult } from '../game/balance';
 import { CLASSES, MODS } from '../game/content';
 import { TRAIT_DESC, type EnemySpec } from '../game/enemies';
 import { Fighter, type SpellInst } from '../game/fighter';
@@ -44,7 +44,7 @@ export interface BattleResult { won: boolean; gold: number; hp: number; maxCombo
 
 const ENAMEL = ['#b3261e', '#1d4fa3', '#1f7a3e', '#a8740a', '#6a2a9a'];
 const inRect = (r: Rect, x: number, y: number) => x >= r.x && y >= r.y && x <= r.x + r.w && y <= r.y + r.h;
-const DISPLAY = '"Lilita One", "Arial Black", sans-serif';
+const DISPLAY = '"Paytone One", "Arial Black", sans-serif';
 const BODY = '"Signika", system-ui, sans-serif';
 
 export class BattleScene implements Scene {
@@ -319,6 +319,13 @@ export class BattleScene implements Scene {
   private async turn(f: Fighter): Promise<boolean> {
     this.turnNo++;
     this.phase = 'busy';
+    if (this.turnNo >= BAL.quietAt && (this.turnNo - BAL.quietAt) % BAL.quietStep === 0) {
+      const m = quietMult(this.turnNo);
+      if (m === 2) this.banner('Cisza nocna!', 'Sąsiad dzwoni po straż miejską. Kończcie to: czaszki biją podwójnie.', '#ff8a5a', 28, 2.4);
+      else this.banner('Straż miejska już jedzie', `czaszki biją ×${m}`, '#ff8a5a', 26, 1.8);
+      sfx.bad();
+      await this.wait(m === 2 ? 1.6 : 1.1);
+    }
     if (this.setup.mods.includes('storm') && this.turnNo % 4 === 0) {
       await this.stormStrike(f);
       if (this.over) return false;
@@ -552,6 +559,7 @@ export class BattleScene implements Scene {
     if (counts[SKULL]) {
       let dmg = counts[SKULL] * (actor.skull + actor.str.amt);
       if (this.setup.mods.includes('bloodmoon')) dmg *= 2;
+      dmg *= quietMult(this.turnNo);
       const [tx, ty] = this.porXY(foe);
       let first = true;
       for (const [x, y, t] of pos) {
@@ -837,6 +845,16 @@ export class BattleScene implements Scene {
         this.fx.text(x, y - r, `+${v} ⛨`, '#9fd4ff', 22);
         sfx.shield();
         await this.wait(0.5);
+      },
+      unshield: async () => {
+        if (foe.shield <= 0) return;
+        foe.shield = 0;
+        const [x, y] = this.porXY(foe);
+        const r = this.side(foe).por.r;
+        this.fx.ring(x, y, '#9fd4ff', r * 1.4, r * 0.4, 0.4, 6);
+        this.fx.text(x, y + r * 0.6, 'Bez kufajki!', '#9fd4ff', 22);
+        sfx.hit(true);
+        await this.wait(0.35);
       },
       poison: async (d, turns) => {
         await this.projectile(me, foe, 'nature');

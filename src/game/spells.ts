@@ -13,6 +13,8 @@ export interface SpellCtx {
   damage(n: number, fx: FxKind): Promise<void>;
   heal(n: number): Promise<void>;
   shield(n: number): Promise<void>;
+  /** Knocks off all of the foe's shield. */
+  unshield(): Promise<void>;
   poison(dmg: number, turns: number): Promise<void>;
   stun(turns: number): Promise<void>;
   strength(n: number, turns: number): Promise<void>;
@@ -64,6 +66,15 @@ const list: SpellDef[] = [
     desc: (l) => `Zyskujesz ${L(l, 10, 15)} punktów tarczy.`,
     cast: (c, l) => c.shield(L(l, 10, 15)),
     ai: (me) => (me.shield < 5 ? 9 : 1),
+  },
+  {
+    id: 'slipper', name: 'Kapeć', elem: EARTH, cost: [0, 0, 5, 0], pool: 'p', tier: 1,
+    desc: (l) => `Zdziera z wroga całą tarczę i zadaje ${L(l, 8, 11)} obrażeń. Wychowała tym troje dzieci i jednego męża.`,
+    cast: async (c, l) => {
+      await c.unshield();
+      await c.damage(L(l, 8, 11), 'rock');
+    },
+    ai: (_, foe) => (foe.shield > 0 ? 12 : 9),
   },
   {
     id: 'chain', name: 'Zwarcie w instalacji', elem: AIR, cost: [0, 0, 0, 7], pool: 'p', tier: 1,

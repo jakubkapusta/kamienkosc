@@ -1,5 +1,5 @@
 // Offline cache: the whole game is static, so cache-first with background refresh.
-const CACHE = 'kamienkosc-v1';
+const CACHE = 'kamienkosc-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html'])).then(() => self.skipWaiting()));

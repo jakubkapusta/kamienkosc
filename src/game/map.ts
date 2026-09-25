@@ -10,6 +10,7 @@ export const NODE_NAME: Record<NodeType, string> = {
 };
 
 export const ROWS = 8; // 0..6 path, 7 boss
+const SHOP_FROM = 4;
 
 export function genMap(seed: number): MapData {
   const rng = new RNG(seed);
@@ -57,7 +58,8 @@ export function genMap(seed: number): MapData {
       else {
         const w: [NodeType, number][] = [['battle', 46], ['event', 22]];
         if (r >= 2) w.push(['elite', 13]);
-        if (r >= 1) w.push(['shop', 10]);
+        // shops only once there is money to spend (~60+ zł by floor 5)
+        if (r >= SHOP_FROM) w.push(['shop', 16]);
         if (r === 4) w.push(['rest', 7]);
         n.type = rng.weighted(w);
       }
@@ -65,10 +67,6 @@ export function genMap(seed: number): MapData {
   }
   const mid = rows[3];
   rng.pick(mid).type = 'treasure';
-  const hasShop = nodes.some((n) => n.type === 'shop');
-  if (!hasShop) {
-    const cands = rows[4].filter((n) => n.type !== 'treasure');
-    rng.pick(cands.length ? cands : rows[4]).type = 'shop';
-  }
+  if (!nodes.some((n) => n.type === 'shop')) rng.pick(rows[rng.int(SHOP_FROM, ROWS - 3)]).type = 'shop';
   return { nodes, rows: ROWS };
 }
