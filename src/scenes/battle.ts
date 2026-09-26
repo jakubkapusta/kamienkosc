@@ -1296,6 +1296,8 @@ export class BattleScene implements Scene {
     // fighters
     for (const f of [this.P, this.E]) {
       f.hpVis += (f.hpShown - f.hpVis) * Math.min(1, dt * 10);
+      // the ease never lands exactly; snap so a dead enemy reads 0, not 1
+      if (Math.abs(f.hpShown - f.hpVis) < 0.05) f.hpVis = f.hpShown;
       if (f.hpGhost > f.hpVis) f.hpGhost = Math.max(f.hpVis, f.hpGhost - f.maxHp * dt * 0.35);
       else f.hpGhost = f.hpVis;
       for (let c = 0; c < 4; c++) {
